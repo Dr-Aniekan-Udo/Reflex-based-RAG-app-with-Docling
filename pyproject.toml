@@ -1,0 +1,33 @@
+[project]
+name = "reflex-based-rag-app-with-docling"
+version = "0.1.0"
+description = "Document Intelligence Agent with Docling & Gemini"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "python-dotenv>=1.0.0",
+    "pandas>=2.0.0",
+    "pypdf>=5.0.0",
+    "langchain>=0.3.0",
+    "langgraph>=0.2.0",
+    "langchain-text-splitters>=0.3.0",
+    "langchain-google-genai>=4.1.2",
+    "docling[rapidocr]>=2.55.0",
+    "chromadb>=0.5.5",
+    "langchain-chroma>=0.2.0",
+    # We pin the CPU versions here to prevent GPU bloat
+    "torch==2.5.1+cpu",
+    "torchvision==0.20.1+cpu",
+    "reflex>=0.8.24.post1",
+]
+
+# --- The Magic CPU Configuration ---
+# This tells uv to look at the CPU repo for specific packages
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
