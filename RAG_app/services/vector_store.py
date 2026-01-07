@@ -1,6 +1,7 @@
 """
 Vector store management for document storage and retrieval.
 Thread-safe singleton pattern for shared resources.
+All file processing happens in-memory without disk writes.
 """
 import asyncio
 from typing import List, Optional
@@ -69,6 +70,7 @@ class VectorStoreService:
     async def process_documents(self, file_data: List[tuple]) -> tuple:
         """
         Process uploaded files and create vector store.
+        All processing happens in-memory from bytes data.
         
         Args:
             file_data: List of (filename, bytes_data) tuples
@@ -108,11 +110,15 @@ class VectorStoreService:
         return documents, docling_docs, success_count, error_count
     
     def _process_single_file(self, filename: str, file_bytes: bytes):
-        """Process a single PDF file (blocking operation)"""
+        """
+        Process a single PDF file from memory (blocking operation).
+        NO disk writes - everything stays in memory.
+        """
         try:
             documents = []
             docling_doc_list = []
             
+            # Create BytesIO stream from bytes (in-memory)
             master_bytes = BytesIO(file_bytes)
             reader = PdfReader(master_bytes)
             total_pages = len(reader.pages)
@@ -123,17 +129,19 @@ class VectorStoreService:
             for start_page in range(0, total_pages, BATCH_SIZE):
                 end_page = min(start_page + BATCH_SIZE, total_pages)
                 
-                # Create batch
+                # Create batch in memory
                 writer = PdfWriter()
                 for i in range(start_page, end_page):
                     writer.add_page(reader.pages[i])
                 
+                # Write to BytesIO (in-memory, not disk)
                 batch_stream = BytesIO()
                 writer.write(batch_stream)
                 batch_stream.seek(0)
                 
+                # Create DocumentStream from in-memory bytes
                 source = DocumentStream(
-                    name=f"batch_{start_page}",
+                    name=f"{filename}_batch_{start_page}",
                     stream=batch_stream
                 )
                 
@@ -183,19 +191,26 @@ class VectorStoreService:
                     
                     # Store for visualization
                     docling_doc_list.append({
-                        'filename': f"{filename} (Pages {start_page}-{end_page})",
+                        'filename': f"{filename} (Pages {start_page}-{end_page-1})",
                         'doc': doc,
                         'page_offset': start_page
                     })
                     
                 except Exception as e:
-                    print(f"Batch error at {start_page}: {e}")
+                    print(f"Batch error at {start_page} for {filename}: {e}")
                     continue
+                
+                finally:
+                    # Clean up in-memory batch stream
+                    batch_stream.close()
+            
+            # Clean up master stream
+            master_bytes.close()
             
             return documents, docling_doc_list
             
         except Exception as e:
-            print(f"File processing error: {e}")
+            print(f"File processing error for {filename}: {e}")
             return None
     
     async def create_vectorstore(self, documents: List[Document]) -> bool:
@@ -245,7 +260,14 @@ class VectorStoreService:
             return []
     
     def reset(self):
-        """Reset the vector store"""
+        """Reset the vector store and clean up resources"""
+        if self.vectorstore:
+            try:
+                # Clean up Chroma collection
+                self.vectorstore = None
+            except Exception as e:
+                print(f"Error cleaning up vectorstore: {e}")
+        
         self.vectorstore = None
 
 
