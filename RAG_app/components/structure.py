@@ -12,7 +12,7 @@ def stat_card(icon_name: str, label: str, value: str, color: str) -> rx.Componen
             rx.icon(icon_name, size=24, color=color),
             rx.vstack(
                 rx.text(value, size="5", weight="bold"),
-                rx.text(label, size="1", color="gray"),
+                rx.text(label, size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                 spacing="0",
             ),
             spacing="3",
@@ -135,7 +135,7 @@ def structure_view() -> rx.Component:
                                 ),
                                 rx.cond(
                                     table["has_caption"],
-                                    rx.text(table["caption"], size="1", color="gray"),
+                                    rx.text(table["caption"], size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                                     rx.box(),
                                 ),
                                 rx.html(table["html"]),
@@ -172,7 +172,7 @@ def structure_view() -> rx.Component:
                                         border_radius="medium",
                                     ),
                                     rx.box(
-                                        rx.icon("image-off", size=32, color="gray"),
+                                        rx.icon("image-off", size=32, color=rx.color_mode_cond(light=rx.color("slate", 10), dark=rx.color("slate", 11))),
                                         height="200px",
                                         display="flex",
                                         align_items="center",
@@ -182,7 +182,7 @@ def structure_view() -> rx.Component:
                                 rx.text(pic["display_title"], size="1", weight="medium"),
                                 rx.cond(
                                     pic["has_caption"],
-                                    rx.text(pic["caption"], size="1", color="gray"),
+                                    rx.text(pic["caption"], size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                                     rx.box(),
                                 ),
                                 width="100%",

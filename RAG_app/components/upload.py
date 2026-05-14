@@ -24,7 +24,7 @@ def upload_view() -> rx.Component:
                     rx.text(
                         "Drag and drop documents here (PDF, DOCX, PPTX, HTML)",
                         size="2",
-                        color="gray",
+                        color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11)),
                     ),
                     spacing="2",
                 ),
@@ -60,7 +60,7 @@ def upload_view() -> rx.Component:
                                 rx.text(
                                     f"({file_info['size_mb']} MB)",
                                     size="1",
-                                    color="gray",
+                                    color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11)),
                                 ),
                                 rx.badge("Ready", color_scheme="blue", size="1"),
                                 spacing="2",
@@ -140,7 +140,7 @@ def upload_view() -> rx.Component:
                 UploadState.processed_files.length() > 0,
                 rx.box(
                     rx.heading("✅ Processed Files", size="3", margin_bottom="0.25em"),
-                    rx.text("These documents are ready for chat queries", size="1", color="gray", margin_bottom="0.25em"),
+                    rx.text("These documents are ready for chat queries", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11)), margin_bottom="0.25em"),
                     rx.vstack(
                         rx.foreach(
                             UploadState.processed_files,

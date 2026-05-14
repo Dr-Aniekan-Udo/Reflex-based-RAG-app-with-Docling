@@ -22,11 +22,11 @@ def sidebar() -> rx.Component:
             rx.divider(),
 
             # ─── Document Ingestion ───
-            rx.heading("📤 Upload", size="3", color="gray", width="100%"),
+            rx.heading("📤 Upload", size="3", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11)), width="100%"),
             rx.upload(
                 rx.vstack(
                     rx.icon("upload-cloud", size=32, color="orange"),
-                    rx.text("Drop PDF, DOCX, PPTX, HTML", size="1", color="gray"),
+                    rx.text("Drop PDF, DOCX, PPTX, HTML", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                     spacing="2",
                 ),
                 id="upload_files",
@@ -60,7 +60,7 @@ def sidebar() -> rx.Component:
                             rx.hstack(
                                 rx.icon("file-text", size=14, color="orange"),
                                 rx.text(file_info["name"], size="1", truncate=True, flex="1"),
-                                rx.text(f"{file_info['size_mb']} MB", size="1", color="gray"),
+                                rx.text(f"{file_info['size_mb']} MB", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                                 spacing="2",
                                 align="center",
                             ),
@@ -114,7 +114,7 @@ def sidebar() -> rx.Component:
                         color_scheme="orange",
                         height="6px",
                     ),
-                    rx.text(UploadState.current_task_message, size="1", color="gray"),
+                    rx.text(UploadState.current_task_message, size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                     spacing="1",
                     width="100%",
                 ),
@@ -123,13 +123,13 @@ def sidebar() -> rx.Component:
             rx.divider(),
 
             # ─── Session Stats ───
-            rx.heading("📊 Stats", size="3", color="gray", width="100%"),
+            rx.heading("📊 Stats", size="3", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11)), width="100%"),
             rx.grid(
                 rx.card(
                     rx.vstack(
                         rx.icon("file-text", size=18, color="orange"),
                         rx.text(UploadState.document_stats["total_files"], size="4", weight="bold"),
-                        rx.text("Files", size="1", color="gray"),
+                        rx.text("Files", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                         align="center",
                         spacing="1",
                     ),
@@ -140,7 +140,7 @@ def sidebar() -> rx.Component:
                     rx.vstack(
                         rx.icon("hard-drive", size=18, color="sky"),
                         rx.text(f"{UploadState.document_stats['total_size_mb']}MB", size="4", weight="bold"),
-                        rx.text("Size", size="1", color="gray"),
+                        rx.text("Size", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                         align="center",
                         spacing="1",
                     ),
@@ -151,7 +151,7 @@ def sidebar() -> rx.Component:
                     rx.vstack(
                         rx.icon("book-open", size=18, color="grass"),
                         rx.text(UploadState.document_stats["total_pages"], size="4", weight="bold"),
-                        rx.text("Pages", size="1", color="gray"),
+                        rx.text("Pages", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                         align="center",
                         spacing="1",
                     ),
@@ -162,7 +162,7 @@ def sidebar() -> rx.Component:
                     rx.vstack(
                         rx.icon("link", size=18, color="violet"),
                         rx.text(UploadState.document_stats["vector_count"], size="4", weight="bold"),
-                        rx.text("Vectors", size="1", color="gray"),
+                        rx.text("Vectors", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                         align="center",
                         spacing="1",
                     ),
@@ -177,7 +177,7 @@ def sidebar() -> rx.Component:
             rx.text(
                 f"Session: {BaseState.session_id[:8]}...",
                 size="1",
-                color="gray",
+                color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11)),
                 width="100%",
                 text_align="center",
             ),
@@ -198,7 +198,7 @@ def sidebar() -> rx.Component:
                     size="2",
                 ),
                 rx.spacer(),
-                rx.text("v1.0", size="1", color="gray"),
+                rx.text("v1.0", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                 width="100%",
             ),
 

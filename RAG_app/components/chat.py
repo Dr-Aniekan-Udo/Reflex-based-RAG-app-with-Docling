@@ -78,13 +78,13 @@ def welcome_state() -> rx.Component:
         rx.heading("RAG AI Assistant", size="6", weight="bold"),
         rx.text(
             "Upload documents and ask me anything about them.",
-            color="gray",
+            color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11)),
             size="3",
             text_align="center",
         ),
         rx.text(
             "I can summarize, extract tables, analyze images, and answer questions.",
-            color="gray",
+            color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11)),
             size="2",
             text_align="center",
         ),
@@ -187,7 +187,7 @@ def chat_interface() -> rx.Component:
                 ChatState.is_streaming,
                 rx.hstack(
                     rx.spinner(size="2", color="orange"),
-                    rx.text("AI is thinking...", size="1", color="gray"),
+                    rx.text("AI is thinking...", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                     spacing="2",
                 ),
             ),
