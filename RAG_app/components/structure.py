@@ -126,14 +126,14 @@ def structure_view() -> rx.Component:
                                 rx.box(),
                             ),
                             rx.cond(
-                                table.get("rows", []).length() > 0,
+                                len(table.get("rows", [])) > 0,
                                 rx.box(
                                     rx.table.root(
                                         rx.table.header(
                                             rx.table.row(
                                                 rx.foreach(
                                                     table.get("columns", []),
-                                                    lambda col: rx.table.column_header_cell(str(col)),
+                                                    lambda col: rx.table.column_header_cell(col),
                                                 ),
                                             ),
                                         ),
@@ -142,8 +142,8 @@ def structure_view() -> rx.Component:
                                                 table.get("rows", []),
                                                 lambda row: rx.table.row(
                                                     rx.foreach(
-                                                        table.get("columns", []),
-                                                        lambda col: rx.table.cell(str(row.get(col, ""))),
+                                                        row,
+                                                        lambda cell: rx.table.cell(cell),
                                                     ),
                                                 ),
                                             ),

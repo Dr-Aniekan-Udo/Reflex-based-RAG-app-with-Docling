@@ -103,13 +103,13 @@ class DocumentStructureVisualizer:
                     if not df.empty:
                         columns = [str(c) for c in df.columns]
                         for _, row in df.iterrows():
-                            row_dict = {}
-                            for k, v in row.items():
-                                val = str(v) if v is not None else ""
+                            row_list = []
+                            for c in df.columns:
+                                val = str(row[c]) if row[c] is not None else ""
                                 if val == "nan":
                                     val = ""
-                                row_dict[str(k)] = val
-                            rows.append(row_dict)
+                                row_list.append(val)
+                            rows.append(row_list)
 
                     page_str = f"Page {page_no}" if page_no is not None else ""
                     tables_info.append({
