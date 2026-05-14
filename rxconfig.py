@@ -2,8 +2,8 @@ import os
 import reflex as rx
 
 # Detect GitHub Codespaces and set the correct backend API URL
-if os.environ.get("CODESPACES") == "true":
-    codespace_name = os.environ.get("CODESPACE_NAME")
+codespace_name = os.environ.get("CODESPACE_NAME")
+if codespace_name:
     api_url = f"https://{codespace_name}-8002.app.github.dev"
 else:
     api_url = "http://localhost:8002"

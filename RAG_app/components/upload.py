@@ -41,6 +41,34 @@ def upload_view() -> rx.Component:
                 background="#f7fafc",
             ),
 
+            # Files selected display
+            rx.cond(
+                UploadState.uploaded_files.length() > 0,
+                rx.box(
+                    rx.heading("📋 Files Selected", size="3", margin_bottom="0.5em"),
+                    rx.vstack(
+                        rx.foreach(
+                            UploadState.uploaded_files,
+                            lambda filename: rx.hstack(
+                                rx.icon("file", size=16, color="blue"),
+                                rx.text(filename, size="2", flex="1"),
+                                spacing="2",
+                                width="100%",
+                                align="center",
+                            ),
+                        ),
+                        align="start",
+                        spacing="1",
+                        width="100%",
+                    ),
+                    margin_top="1em",
+                    padding="1em",
+                    background="#e3f2fd",
+                    border="1px solid #2196f3",
+                    border_radius="6px",
+                ),
+            ),
+
             # Control buttons
             rx.hstack(
                 rx.button(
