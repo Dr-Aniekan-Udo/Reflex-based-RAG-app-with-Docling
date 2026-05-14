@@ -1,0 +1,32 @@
+{
+  "name": "Reflex RAG App",
+  "image": "mcr.microsoft.com/devcontainers/python:3.13",
+  "features": {
+    "ghcr.io/va-h/devcontainers-features/uv:1": {}
+  },
+  "postCreateCommand": "uv sync && reflex init",
+  "postStartCommand": "uv run reflex run",
+  "forwardPorts": [3001, 8002],
+  "portsAttributes": {
+    "3001": {
+      "label": "Reflex Frontend",
+      "onAutoForward": "openPreview"
+    },
+    "8002": {
+      "label": "Reflex Backend",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.black-formatter",
+        "charliermarsh.ruff"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": ".venv/bin/python"
+      }
+    }
+  }
+}
