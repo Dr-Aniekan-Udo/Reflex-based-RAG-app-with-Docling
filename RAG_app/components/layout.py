@@ -1,5 +1,5 @@
 """
-Layout component - Sidebar + main wrapper with connection status.
+Layout component - Sidebar + main wrapper.
 """
 import reflex as rx
 from ..state.base_state import BaseState
@@ -15,30 +15,10 @@ def stats_card(label: str, value: str) -> rx.Component:
     )
 
 
-def connection_status() -> rx.Component:
-    """WebSocket connection status indicator."""
-    return rx.hstack(
-        rx.box(
-            width="10px",
-            height="10px",
-            border_radius="50%",
-            background=rx.cond(BaseState.ws_connected, "#22c55e", "#ef4444"),
-        ),
-        rx.text(
-            rx.cond(BaseState.ws_connected, "Connected", "Disconnected"),
-            size="1",
-            color=rx.cond(BaseState.ws_connected, "#22c55e", "#ef4444"),
-        ),
-        spacing="1",
-        align="center",
-    )
-
-
 def sidebar() -> rx.Component:
     return rx.box(
         rx.vstack(
             rx.heading("📄 RAG App", size="5", color="white"),
-            connection_status(),
             rx.divider(border_color="gray.600"),
             rx.link("Dashboard", href="/", color="white"),
             rx.spacer(),

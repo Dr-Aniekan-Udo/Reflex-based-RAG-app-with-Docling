@@ -12,6 +12,7 @@ config = rx.Config(
     app_name="RAG_app",
     telemetry_enabled=False,
     api_url=api_url,
+    transport="polling",
     plugins=[
         rx.plugins.SitemapPlugin(),
         rx.plugins.TailwindV4Plugin(),

@@ -1,5 +1,7 @@
 """
-Upload component - Single-step file upload and processing.
+Upload component - Two-step file upload and processing.
+Step 1: Drop files (auto-reads into memory)
+Step 2: Click Process & Vectorize
 """
 import reflex as rx
 from ..state.upload_state import UploadState
@@ -39,6 +41,9 @@ def upload_view() -> rx.Component:
                 max_files=10,
                 width="100%",
                 background="#f7fafc",
+                on_drop=UploadState.handle_upload(
+                    rx.upload_files(upload_id="upload_files")
+                ),
             ),
 
             # Files selected display
@@ -49,9 +54,15 @@ def upload_view() -> rx.Component:
                     rx.vstack(
                         rx.foreach(
                             UploadState.uploaded_files,
-                            lambda filename: rx.hstack(
+                            lambda file_info: rx.hstack(
                                 rx.icon("file", size=16, color="blue"),
-                                rx.text(filename, size="2", flex="1"),
+                                rx.text(file_info["name"], size="2", flex="1"),
+                                rx.text(
+                                    f"({file_info['size_mb']} MB)",
+                                    size="1",
+                                    color="gray",
+                                ),
+                                rx.badge("Ready", color_scheme="blue", size="1"),
                                 spacing="2",
                                 width="100%",
                                 align="center",
@@ -72,12 +83,13 @@ def upload_view() -> rx.Component:
             # Control buttons
             rx.hstack(
                 rx.button(
-                    "🚀 Process Documents",
-                    on_click=UploadState.handle_upload(
-                        rx.upload_files(upload_id="upload_files")
-                    ),
+                    "🚀 Process & Vectorize",
+                    on_click=UploadState.start_processing,
                     loading=UploadState.is_processing,
-                    disabled=UploadState.is_processing,
+                    disabled=(
+                        UploadState.is_processing
+                        | (UploadState.uploaded_files.length() == 0)
+                    ),
                     variant="surface",
                     color_scheme="green",
                 ),
