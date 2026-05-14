@@ -11,7 +11,7 @@ def upload_view() -> rx.Component:
     """Document upload and processing interface."""
     return rx.card(
         rx.vstack(
-            rx.heading("📤 Document Ingestion", size="4", margin_bottom="1em"),
+            rx.heading("📤 Document Ingestion", size="4", margin_bottom="0.5em"),
 
             # Upload zone
             rx.upload(
@@ -19,7 +19,7 @@ def upload_view() -> rx.Component:
                     rx.button(
                         "Select Documents",
                         color_scheme="blue",
-                        size="3",
+                        size="2",
                     ),
                     rx.text(
                         "Drag and drop documents here (PDF, DOCX, PPTX, HTML)",
@@ -30,7 +30,7 @@ def upload_view() -> rx.Component:
                 ),
                 id="upload_files",
                 border="2px dashed #cbd5e0",
-                padding="2em",
+                padding="1.5em",
                 multiple=True,
                 accept={
                     "application/pdf": [".pdf"],
@@ -106,7 +106,7 @@ def upload_view() -> rx.Component:
                 justify="end",
             ),
 
-            rx.divider(margin_y="1.5em"),
+            rx.divider(margin_y="1em"),
 
             # Status message
             rx.text(
@@ -128,7 +128,7 @@ def upload_view() -> rx.Component:
                         height="8px",
                     ),
                     background="#ebf8ff",
-                    padding="1em",
+                    padding="0.75em",
                     border_radius="6px",
                     width="100%",
                     margin_top="0.5em",
@@ -139,8 +139,8 @@ def upload_view() -> rx.Component:
             rx.cond(
                 UploadState.processed_files.length() > 0,
                 rx.box(
-                    rx.heading("✅ Processed Files", size="3", margin_bottom="0.5em"),
-                    rx.text("These documents are ready for chat queries", size="1", color="gray", margin_bottom="0.5em"),
+                    rx.heading("✅ Processed Files", size="3", margin_bottom="0.25em"),
+                    rx.text("These documents are ready for chat queries", size="1", color="gray", margin_bottom="0.25em"),
                     rx.vstack(
                         rx.foreach(
                             UploadState.processed_files,
@@ -154,8 +154,8 @@ def upload_view() -> rx.Component:
                         align="start",
                         spacing="1",
                     ),
-                    margin_top="1em",
-                    padding="1em",
+                    margin_top="0.75em",
+                    padding="0.75em",
                     background="#e8f5e9",
                     border="1px solid #4caf50",
                     border_radius="6px",

@@ -35,25 +35,25 @@ def structure_view() -> rx.Component:
                         rx.card(
                             rx.vstack(
                                 rx.text("Pages", size="1", color="gray"),
-                                rx.heading(StructureState.current_summary.get("num_pages", 0), size="5"),
+                                rx.heading(str(StructureState.current_summary.get("num_pages", 0)), size="5"),
                             )
                         ),
                         rx.card(
                             rx.vstack(
                                 rx.text("Tables", size="1", color="gray"),
-                                rx.heading(StructureState.current_summary.get("num_tables", 0), size="5"),
+                                rx.heading(str(StructureState.current_summary.get("num_tables", 0)), size="5"),
                             )
                         ),
                         rx.card(
                             rx.vstack(
                                 rx.text("Images", size="1", color="gray"),
-                                rx.heading(StructureState.current_summary.get("num_pictures", 0), size="5"),
+                                rx.heading(str(StructureState.current_summary.get("num_pictures", 0)), size="5"),
                             )
                         ),
                         rx.card(
                             rx.vstack(
                                 rx.text("Text Items", size="1", color="gray"),
-                                rx.heading(StructureState.current_summary.get("num_texts", 0), size="5"),
+                                rx.heading(str(StructureState.current_summary.get("num_texts", 0)), size="5"),
                             )
                         ),
                         columns="4",
@@ -72,7 +72,7 @@ def structure_view() -> rx.Component:
                             rx.foreach(
                                 StructureState.text_types_list,
                                 lambda item: rx.table.row(
-                                    rx.table.cell(item[0]),
+                                    rx.table.cell(str(item[0])),
                                     rx.table.cell(str(item[1])),
                                 ),
                             ),
@@ -92,6 +92,8 @@ def structure_view() -> rx.Component:
                             rx.text(
                                 item.get("text", ""),
                                 size="2",
+                                weight=rx.cond(item.get("level", 4) <= 2, "bold", "medium"),
+                                color=rx.cond(item.get("level", 4) == 1, "blue", "black"),
                             ),
                             rx.spacer(),
                             rx.text(
@@ -101,6 +103,7 @@ def structure_view() -> rx.Component:
                             ),
                             width="100%",
                             padding_y="0.25em",
+                            border_bottom="1px solid #f0f0f0",
                         ),
                     ),
                 ),
@@ -123,8 +126,35 @@ def structure_view() -> rx.Component:
                                 rx.box(),
                             ),
                             rx.cond(
-                                table.get("is_empty") == False,
-                                rx.markdown(table.get("markdown", "")),
+                                table.get("rows", []).length() > 0,
+                                rx.box(
+                                    rx.table.root(
+                                        rx.table.header(
+                                            rx.table.row(
+                                                rx.foreach(
+                                                    table.get("columns", []),
+                                                    lambda col: rx.table.column_header_cell(str(col)),
+                                                ),
+                                            ),
+                                        ),
+                                        rx.table.body(
+                                            rx.foreach(
+                                                table.get("rows", []),
+                                                lambda row: rx.table.row(
+                                                    rx.foreach(
+                                                        table.get("columns", []),
+                                                        lambda col: rx.table.cell(str(row.get(col, ""))),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                        width="100%",
+                                    ),
+                                    overflow_x="auto",
+                                    max_width="100%",
+                                    border="1px solid #e2e8f0",
+                                    border_radius="6px",
+                                ),
                                 rx.text("Table is empty", color="gray"),
                             ),
                             rx.divider(margin_y="1em"),
@@ -150,8 +180,14 @@ def structure_view() -> rx.Component:
                                 rx.box(),
                             ),
                             rx.cond(
-                                pic.get("has_image"),
-                                rx.text("Image available", color="green", size="2"),
+                                pic.get("image_data") != None,
+                                rx.image(
+                                    src=pic.get("image_data"),
+                                    width="100%",
+                                    max_width="600px",
+                                    border_radius="8px",
+                                    box_shadow="sm",
+                                ),
                                 rx.text("Image data not available", color="gray", size="2"),
                             ),
                             rx.cond(

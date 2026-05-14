@@ -2,6 +2,8 @@
 Document structure visualization for Docling processed documents.
 Pre-serializes everything into plain Python dicts/lists so Reflex state stays safe.
 """
+import base64
+from io import BytesIO
 from typing import List, Dict, Any, Optional
 
 
@@ -91,15 +93,19 @@ class DocumentStructureVisualizer:
                     caption_text = getattr(table, 'caption_text', None)
                     caption = caption_text if caption_text and not callable(caption_text) else None
 
-                    markdown_lines = []
-                    if caption:
-                        markdown_lines.append(f"**{caption}**")
+                    # Build structured rows/columns for frontend table rendering
+                    columns = []
+                    rows = []
                     if not df.empty:
-                        try:
-                            markdown_lines.append(df.to_markdown(index=False))
-                        except Exception:
-                            markdown_lines.append(str(df))
-                    table_markdown = "\n\n".join(markdown_lines)
+                        columns = [str(c) for c in df.columns]
+                        for _, row in df.iterrows():
+                            row_dict = {}
+                            for k, v in row.items():
+                                val = str(v) if v is not None else ""
+                                if val == "nan":
+                                    val = ""
+                                row_dict[str(k)] = val
+                            rows.append(row_dict)
 
                     page_str = f"Page {page_no}" if page_no is not None else ""
                     tables_info.append({
@@ -108,7 +114,8 @@ class DocumentStructureVisualizer:
                         'page_str': page_str,
                         'caption': caption,
                         'display_title': f"Table {global_table_counter} ({page_str})",
-                        'markdown': table_markdown,
+                        'columns': columns,
+                        'rows': rows,
                         'shape': str(df.shape),
                         'is_empty': df.empty
                     })
@@ -135,11 +142,16 @@ class DocumentStructureVisualizer:
                     caption_text = getattr(pic, 'caption_text', None)
                     caption = caption_text if caption_text and not callable(caption_text) else None
 
+                    image_data = None
                     has_image = False
                     try:
                         if hasattr(pic, 'image') and pic.image is not None:
-                            if hasattr(pic.image, 'pil_image'):
+                            if hasattr(pic.image, 'pil_image') and pic.image.pil_image is not None:
                                 has_image = True
+                                buffer = BytesIO()
+                                pic.image.pil_image.save(buffer, format="PNG")
+                                img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+                                image_data = f"data:image/png;base64,{img_base64}"
                     except Exception as e:
                         print(f"Warning: Could not extract image: {e}")
 
@@ -153,6 +165,7 @@ class DocumentStructureVisualizer:
                         'page_str': page_str,
                         'caption': caption,
                         'has_image': has_image,
+                        'image_data': image_data,
                         'display_title': f"Image {global_pic_counter} ({page_str})",
                         'bounding_box': {
                             'left': bbox.l,
