@@ -45,14 +45,14 @@ The project is strictly split into three layers:
 - **Document Parsing**: Docling [rapidocr] >=2.55.0
 - **LLM Framework**: LangChain >=0.3.0, LangGraph >=0.2.0
 - **LLM Provider**: Google Gemini (via `langchain-google-genai`)
-- **Embeddings**: Google `embedding-001` (default — widely supported); `text-embedding-004` available via env override
+- **Embeddings**: Google `gemini-embedding-2-preview` (default via `langchain-google-genai>=4.x`)
 
 ## Environment Variables
 Create a `.env` file in the project root:
 ```bash
 GOOGLE_API_KEY=your-google-api-key
 GEMINI_MODEL=gemini-2.5-flash        # optional
-EMBEDDING_MODEL=models/embedding-001  # optional (default)
+EMBEDDING_MODEL=gemini-embedding-2-preview  # optional (default)
 ```
 
 ## Build & Run

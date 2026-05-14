@@ -9,9 +9,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 
-# Default to embedding-001 (widely supported on v1beta)
-# text-embedding-004 may require newer API versions
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "models/embedding-001")
+# The installed langchain-google-genai (>=4.x) uses the new Google GenAI SDK.
+# The correct embedding model name is "gemini-embedding-2-preview".
+# Older names like "models/text-embedding-004" are not supported by this SDK.
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "gemini-embedding-2-preview")
 
 
 class VectorStoreManager:
