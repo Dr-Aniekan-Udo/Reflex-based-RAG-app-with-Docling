@@ -2,18 +2,23 @@
 Vector store management for document storage and retrieval.
 Synchronous; the caller (Reflex background task) is responsible for threading.
 """
+import os
 from typing import List
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 
+# Default to embedding-001 (widely supported on v1beta)
+# text-embedding-004 may require newer API versions
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "models/embedding-001")
+
 
 class VectorStoreManager:
     """Manages document chunking, embedding, and vector storage."""
 
     def __init__(self):
-        self.embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
+        self.embeddings = GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL)
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=100,

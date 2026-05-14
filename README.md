@@ -17,24 +17,13 @@ A production-ready, multi-user Retrieval-Augmented Generation (RAG) application 
 - **Document Parsing**: Docling [rapidocr] >=2.55.0
 - **LLM Framework**: LangChain >=0.3.0, LangGraph >=0.2.0
 - **LLM Provider**: Google Gemini (via `langchain-google-genai`)
-- **Embeddings**: Google `text-embedding-004`
-- **Vector DB**: ChromaDB (in-memory per session)
-- **Frontend Styling**: Tailwind CSS v4 (via Reflex plugin)
+- **Embeddings**: Google `embedding-001` (default); `text-embedding-004` available via env override
 
-## Quick Start
-
-### Prerequisites
-- Python >= 3.12
-- Google Gemini API key
-
-### Installation
-
+## Environment Variables
 ```bash
-# Using UV (recommended)
-uv sync
-
-# Or using pip
-pip install -r requirements.txt
+GOOGLE_API_KEY=your-google-api-key
+GEMINI_MODEL=gemini-2.5-flash        # optional
+EMBEDDING_MODEL=models/embedding-001   # optional (default)
 ```
 
 ### Environment Variables
