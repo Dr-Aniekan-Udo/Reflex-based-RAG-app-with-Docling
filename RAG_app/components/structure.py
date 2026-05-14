@@ -35,25 +35,25 @@ def structure_view() -> rx.Component:
                         rx.card(
                             rx.vstack(
                                 rx.text("Pages", size="1", color="gray"),
-                                rx.heading(str(StructureState.current_summary.get("num_pages", 0)), size="5"),
+                                rx.heading(StructureState.current_summary["num_pages"], size="5"),
                             )
                         ),
                         rx.card(
                             rx.vstack(
                                 rx.text("Tables", size="1", color="gray"),
-                                rx.heading(str(StructureState.current_summary.get("num_tables", 0)), size="5"),
+                                rx.heading(StructureState.current_summary["num_tables"], size="5"),
                             )
                         ),
                         rx.card(
                             rx.vstack(
                                 rx.text("Images", size="1", color="gray"),
-                                rx.heading(str(StructureState.current_summary.get("num_pictures", 0)), size="5"),
+                                rx.heading(StructureState.current_summary["num_pictures"], size="5"),
                             )
                         ),
                         rx.card(
                             rx.vstack(
                                 rx.text("Text Items", size="1", color="gray"),
-                                rx.heading(str(StructureState.current_summary.get("num_texts", 0)), size="5"),
+                                rx.heading(StructureState.current_summary["num_texts"], size="5"),
                             )
                         ),
                         columns="4",
@@ -72,8 +72,8 @@ def structure_view() -> rx.Component:
                             rx.foreach(
                                 StructureState.text_types_list,
                                 lambda item: rx.table.row(
-                                    rx.table.cell(str(item[0])),
-                                    rx.table.cell(str(item[1])),
+                                    rx.table.cell(item[0]),
+                                    rx.table.cell(item[1]),
                                 ),
                             ),
                         ),
@@ -90,14 +90,14 @@ def structure_view() -> rx.Component:
                         StructureState.current_hierarchy,
                         lambda item: rx.hstack(
                             rx.text(
-                                item.get("text", ""),
+                                item["text"],
                                 size="2",
-                                weight=item.get("weight", "medium"),
-                                color=item.get("color", "black"),
+                                weight=item["weight"],
+                                color=item["color"],
                             ),
                             rx.spacer(),
                             rx.text(
-                                item.get("page_str", ""),
+                                item["page_str"],
                                 size="1",
                                 color="gray",
                             ),
@@ -117,29 +117,29 @@ def structure_view() -> rx.Component:
                         StructureState.current_tables,
                         lambda table: rx.vstack(
                             rx.heading(
-                                table.get("display_title", ""),
+                                table["display_title"],
                                 size="3",
                             ),
                             rx.cond(
-                                table.get("caption") != None,
-                                rx.text(table.get("caption", ""), size="1", color="gray"),
+                                table["has_caption"],
+                                rx.text(table["caption"], size="1", color="gray"),
                                 rx.box(),
                             ),
                             rx.cond(
-                                len(table.get("rows", [])) > 0,
+                                table["has_rows"],
                                 rx.box(
                                     rx.table.root(
                                         rx.table.header(
                                             rx.table.row(
                                                 rx.foreach(
-                                                    table.get("columns", []),
+                                                    table["columns"],
                                                     lambda col: rx.table.column_header_cell(col),
                                                 ),
                                             ),
                                         ),
                                         rx.table.body(
                                             rx.foreach(
-                                                table.get("rows", []),
+                                                table["rows"],
                                                 lambda row: rx.table.row(
                                                     rx.foreach(
                                                         row,
@@ -171,18 +171,18 @@ def structure_view() -> rx.Component:
                         StructureState.current_pictures,
                         lambda pic: rx.vstack(
                             rx.heading(
-                                pic.get("display_title", ""),
+                                pic["display_title"],
                                 size="3",
                             ),
                             rx.cond(
-                                pic.get("caption") != None,
-                                rx.text(pic.get("caption", ""), size="1", color="gray"),
+                                pic["has_caption"],
+                                rx.text(pic["caption"], size="1", color="gray"),
                                 rx.box(),
                             ),
                             rx.cond(
-                                pic.get("image_data") != None,
+                                pic["has_image_data"],
                                 rx.image(
-                                    src=pic.get("image_data"),
+                                    src=pic["image_data"],
                                     width="100%",
                                     max_width="600px",
                                     border_radius="8px",
@@ -191,10 +191,10 @@ def structure_view() -> rx.Component:
                                 rx.text("Image data not available", color="gray", size="2"),
                             ),
                             rx.cond(
-                                pic.get("bounding_box") != None,
+                                pic["has_bbox"],
                                 rx.box(
                                     rx.text(
-                                        pic.get("bbox_text", ""),
+                                        pic["bbox_text"],
                                         size="1",
                                         color="gray",
                                     ),

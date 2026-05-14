@@ -117,9 +117,11 @@ class DocumentStructureVisualizer:
                         'page': page_no,
                         'page_str': page_str,
                         'caption': caption,
+                        'has_caption': caption is not None,
                         'display_title': f"Table {global_table_counter} ({page_str})",
                         'columns': columns,
                         'rows': rows,
+                        'has_rows': len(rows) > 0,
                         'shape': str(df.shape),
                         'is_empty': df.empty
                     })
@@ -168,7 +170,9 @@ class DocumentStructureVisualizer:
                         'page': page_no,
                         'page_str': page_str,
                         'caption': caption,
+                        'has_caption': caption is not None,
                         'has_image': has_image,
+                        'has_image_data': image_data is not None,
                         'image_data': image_data,
                         'display_title': f"Image {global_pic_counter} ({page_str})",
                         'bounding_box': {
@@ -177,6 +181,7 @@ class DocumentStructureVisualizer:
                             'right': bbox.r,
                             'bottom': bbox.b
                         } if bbox else None,
+                        'has_bbox': bbox is not None,
                         'bbox_text': bbox_text
                     })
                     global_pic_counter += 1
