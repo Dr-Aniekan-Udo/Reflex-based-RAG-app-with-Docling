@@ -1,7 +1,8 @@
 """
-Layout component - Sidebar + main wrapper.
+Layout component - Sidebar + main wrapper with connection status.
 """
 import reflex as rx
+from ..state.base_state import BaseState
 from ..state.upload_state import UploadState
 
 
@@ -14,10 +15,30 @@ def stats_card(label: str, value: str) -> rx.Component:
     )
 
 
+def connection_status() -> rx.Component:
+    """WebSocket connection status indicator."""
+    return rx.hstack(
+        rx.box(
+            width="10px",
+            height="10px",
+            border_radius="50%",
+            background=rx.cond(BaseState.ws_connected, "#22c55e", "#ef4444"),
+        ),
+        rx.text(
+            rx.cond(BaseState.ws_connected, "Connected", "Disconnected"),
+            size="1",
+            color=rx.cond(BaseState.ws_connected, "#22c55e", "#ef4444"),
+        ),
+        spacing="1",
+        align="center",
+    )
+
+
 def sidebar() -> rx.Component:
     return rx.box(
         rx.vstack(
             rx.heading("📄 RAG App", size="5", color="white"),
+            connection_status(),
             rx.divider(border_color="gray.600"),
             rx.link("Dashboard", href="/", color="white"),
             rx.spacer(),
@@ -26,6 +47,9 @@ def sidebar() -> rx.Component:
             stats_card("Size (MB)", UploadState.document_stats["total_size_mb"]),
             stats_card("Pages", UploadState.document_stats["total_pages"]),
             stats_card("Vectors", UploadState.document_stats["vector_count"]),
+            rx.spacer(),
+            rx.heading("Session ID", size="3", color="white"),
+            rx.text(BaseState.session_id[:8] + "...", size="1", color="gray"),
             spacing="4",
             height="100%",
             padding="1.5em",

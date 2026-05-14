@@ -4,3 +4,4 @@ from .vector_store import VectorStoreManager
 from .tools import create_search_tool
 from .agent import create_documentation_agent
 from .structure import DocumentStructureVisualizer
+from .logging_config import logger

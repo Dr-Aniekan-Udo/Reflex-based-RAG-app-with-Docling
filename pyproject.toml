@@ -21,6 +21,7 @@ dependencies = [
     "torchvision>=0.21.0",
     "reflex>=0.8.24.post1",
     "pydantic>=2.12.5",
+    "structlog>=24.1.0",
 ]
 
 # --- The Magic CPU Configuration ---

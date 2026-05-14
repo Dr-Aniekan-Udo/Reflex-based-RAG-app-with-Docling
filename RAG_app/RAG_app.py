@@ -4,7 +4,10 @@ Enterprise RAG Application - Main entry point.
 import reflex as rx
 from .pages import dashboard
 from .state.base_state import BaseState
+from .core.logging_config import logger
 
+# Initialize logging
+logger.info("app_starting")
 
 # Initialize the app (theme configured in rxconfig.py via RadixThemesPlugin)
 app = rx.App()
