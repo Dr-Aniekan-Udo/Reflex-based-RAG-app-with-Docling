@@ -45,7 +45,7 @@ def upload_view() -> rx.Component:
             rx.hstack(
                 rx.button(
                     "🚀 Process Documents",
-                    on_click=UploadState.process_documents(
+                    on_click=UploadState.handle_upload(
                         rx.upload_files(upload_id="upload_files")
                     ),
                     loading=UploadState.is_processing,
