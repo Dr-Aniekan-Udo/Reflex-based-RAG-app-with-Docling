@@ -1,6 +1,5 @@
 """
-Upload component - File upload interface with progress tracking.
-Simplified: drop files → they auto-read into memory → click Process.
+Upload component - Single-step file upload and processing.
 """
 import reflex as rx
 from ..state.upload_state import UploadState
@@ -12,7 +11,7 @@ def upload_view() -> rx.Component:
         rx.vstack(
             rx.heading("📤 Document Ingestion", size="4", margin_bottom="1em"),
 
-            # Upload zone — files are read into memory on drop/selection
+            # Upload zone
             rx.upload(
                 rx.vstack(
                     rx.button(
@@ -40,49 +39,17 @@ def upload_view() -> rx.Component:
                 max_files=10,
                 width="100%",
                 background="#f7fafc",
-                on_change=UploadState.handle_upload(
-                    rx.upload_files(upload_id="upload_files")
-                ),
-            ),
-
-            # Files ready section
-            rx.cond(
-                UploadState.uploaded_files.length() > 0,
-                rx.box(
-                    rx.heading("📋 Files Ready", size="3", margin_bottom="0.5em"),
-                    rx.vstack(
-                        rx.foreach(
-                            UploadState.uploaded_files,
-                            lambda filename: rx.hstack(
-                                rx.icon("file", size=16, color="orange"),
-                                rx.text(filename, size="2", flex="1"),
-                                rx.badge("In Memory", color_scheme="orange", size="1"),
-                                spacing="2",
-                                width="100%",
-                                align="center",
-                            ),
-                        ),
-                        align="start",
-                        spacing="1",
-                        width="100%",
-                    ),
-                    margin_top="1em",
-                    padding="1em",
-                    background="#fff8e1",
-                    border="1px solid #ffb300",
-                    border_radius="6px",
-                ),
             ),
 
             # Control buttons
             rx.hstack(
                 rx.button(
-                    "🚀 Process & Vectorize",
-                    on_click=UploadState.start_vectorization,
-                    disabled=(
-                        UploadState.is_processing
-                        | (UploadState.uploaded_files.length() == 0)
+                    "🚀 Process Documents",
+                    on_click=UploadState.process_documents(
+                        rx.upload_files(upload_id="upload_files")
                     ),
+                    loading=UploadState.is_processing,
+                    disabled=UploadState.is_processing,
                     variant="surface",
                     color_scheme="green",
                 ),
@@ -101,16 +68,18 @@ def upload_view() -> rx.Component:
 
             rx.divider(margin_y="1.5em"),
 
+            # Status message
+            rx.text(
+                UploadState.current_task_message,
+                size="2",
+                weight="bold",
+                color="#2d3748",
+            ),
+
             # Progress section
             rx.cond(
                 UploadState.process_progress > 0,
                 rx.box(
-                    rx.text(
-                        UploadState.current_task_message,
-                        size="2",
-                        weight="bold",
-                        color="#2d3748",
-                    ),
                     rx.text("Processing Progress", size="1", margin_top="0.5em"),
                     rx.progress(
                         value=UploadState.process_progress,
@@ -122,6 +91,7 @@ def upload_view() -> rx.Component:
                     padding="1em",
                     border_radius="6px",
                     width="100%",
+                    margin_top="0.5em",
                 ),
             ),
 
