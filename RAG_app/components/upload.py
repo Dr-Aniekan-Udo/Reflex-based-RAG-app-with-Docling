@@ -45,7 +45,7 @@ def upload_view() -> rx.Component:
             rx.cond(
                 UploadState.uploaded_files.length() > 0,
                 rx.box(
-                    rx.heading("📋 Files Selected", size="3", margin_bottom="0.5em"),
+                    rx.heading("📋 Files Ready", size="3", margin_bottom="0.5em"),
                     rx.vstack(
                         rx.foreach(
                             UploadState.uploaded_files,

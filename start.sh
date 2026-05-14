@@ -23,5 +23,14 @@ if [ ! -f ".env" ]; then
     echo ""
 fi
 
+# If in Codespaces, patch env.json to use polling transport
+# This avoids WebSocket issues with GitHub's proxy
+if [ -n "$CODESPACE_NAME" ] && [ -f ".web/env.json" ]; then
+    echo "Switching to HTTP polling for Codespaces compatibility..."
+    sed -i 's/"TRANSPORT": "websocket"/"TRANSPORT": "polling"/g' .web/env.json
+    cat .web/env.json | grep TRANSPORT
+    echo ""
+fi
+
 echo "Starting Reflex..."
 uv run reflex run "$@"
