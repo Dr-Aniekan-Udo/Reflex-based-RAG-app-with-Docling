@@ -1,6 +1,9 @@
 """
 Enterprise RAG Application - Main entry point.
 """
+from dotenv import load_dotenv
+load_dotenv()
+
 import reflex as rx
 from .pages import dashboard
 from .state.base_state import BaseState
