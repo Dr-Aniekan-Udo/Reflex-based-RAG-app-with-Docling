@@ -14,7 +14,7 @@
     },
     "8002": {
       "label": "Reflex Backend",
-      "onAutoForward": "silent"
+      "onAutoForward": "openPreview"
     }
   },
   "customizations": {
