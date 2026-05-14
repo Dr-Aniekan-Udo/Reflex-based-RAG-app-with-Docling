@@ -187,10 +187,56 @@ class DocumentStructureVisualizer:
                     global_pic_counter += 1
         return sorted(pictures_info, key=lambda x: (x['page'] if x['page'] is not None else -1))
 
+    def get_tables_html(self) -> List[Dict[str, Any]]:
+        """Return tables with pre-rendered HTML strings for safe frontend display."""
+        tables = self.get_tables_info()
+        for table in tables:
+            if not table.get("has_rows", False):
+                table["html"] = "<p style='color:gray'>Table is empty</p>"
+                continue
+
+            html_parts = []
+            if table.get("caption"):
+                html_parts.append(f"<p style='color:gray;font-size:0.75em;margin-bottom:0.5em'>{table['caption']}</p>")
+
+            html_parts.append("<table style='width:100%;border-collapse:collapse;border:1px solid #e2e8f0;font-size:0.875em'>")
+            html_parts.append("<thead><tr>")
+            for col in table["columns"]:
+                html_parts.append(f"<th style='border:1px solid #e2e8f0;padding:8px;background:#f7fafc;text-align:left'>{col}</th>")
+            html_parts.append("</tr></thead><tbody>")
+
+            for row in table["rows"]:
+                html_parts.append("<tr>")
+                for cell in row:
+                    html_parts.append(f"<td style='border:1px solid #e2e8f0;padding:8px'>{cell}</td>")
+                html_parts.append("</tr>")
+
+            html_parts.append("</tbody></table>")
+            table["html"] = "".join(html_parts)
+
+        return tables
+
+    def get_hierarchy_html(self) -> str:
+        """Return document hierarchy as a pre-rendered HTML string."""
+        hierarchy = self.get_document_hierarchy()
+        if not hierarchy:
+            return "<p style='color:gray'>No hierarchy found</p>"
+
+        lines = ["<div style='font-family:sans-serif'>"]
+        for item in hierarchy:
+            weight = item["weight"]
+            color = item["color"]
+            text = item["text"]
+            page = item["page_str"]
+            style = f"font-weight:{weight};color:{color};padding:6px 0;border-bottom:1px solid #f0f0f0;white-space:pre-wrap"
+            lines.append(f"<div style='{style}'>{text}<span style='float:right;color:gray;font-size:0.75em'>{page}</span></div>")
+        lines.append("</div>")
+        return "".join(lines)
+
     def export_full_structure(self) -> Dict[str, Any]:
         return {
             'summary': self.get_document_summary(),
-            'hierarchy': self.get_document_hierarchy(),
-            'tables': self.get_tables_info(),
+            'hierarchy_html': self.get_hierarchy_html(),
+            'tables_html': self.get_tables_html(),
             'pictures': self.get_pictures_info()
         }

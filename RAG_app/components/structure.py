@@ -85,27 +85,10 @@ def structure_view() -> rx.Component:
 
             # Hierarchy tab
             rx.tabs.content(
-                rx.vstack(
-                    rx.foreach(
-                        StructureState.current_hierarchy,
-                        lambda item: rx.hstack(
-                            rx.text(
-                                item["text"],
-                                size="2",
-                                weight=item["weight"],
-                                color=item["color"],
-                            ),
-                            rx.spacer(),
-                            rx.text(
-                                item["page_str"],
-                                size="1",
-                                color="gray",
-                            ),
-                            width="100%",
-                            padding_y="0.25em",
-                            border_bottom="1px solid #f0f0f0",
-                        ),
-                    ),
+                rx.box(
+                    rx.html(StructureState.current_hierarchy_html),
+                    width="100%",
+                    overflow_y="auto",
                 ),
                 value="hierarchy",
             ),
@@ -114,7 +97,7 @@ def structure_view() -> rx.Component:
             rx.tabs.content(
                 rx.vstack(
                     rx.foreach(
-                        StructureState.current_tables,
+                        StructureState.current_tables_html,
                         lambda table: rx.vstack(
                             rx.heading(
                                 table["display_title"],
@@ -125,38 +108,7 @@ def structure_view() -> rx.Component:
                                 rx.text(table["caption"], size="1", color="gray"),
                                 rx.box(),
                             ),
-                            rx.cond(
-                                table["has_rows"],
-                                rx.box(
-                                    rx.table.root(
-                                        rx.table.header(
-                                            rx.table.row(
-                                                rx.foreach(
-                                                    table["columns"],
-                                                    lambda col: rx.table.column_header_cell(col),
-                                                ),
-                                            ),
-                                        ),
-                                        rx.table.body(
-                                            rx.foreach(
-                                                table["rows"],
-                                                lambda row: rx.table.row(
-                                                    rx.foreach(
-                                                        row,
-                                                        lambda cell: rx.table.cell(cell),
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
-                                        width="100%",
-                                    ),
-                                    overflow_x="auto",
-                                    max_width="100%",
-                                    border="1px solid #e2e8f0",
-                                    border_radius="6px",
-                                ),
-                                rx.text("Table is empty", color="gray"),
-                            ),
+                            rx.html(table["html"]),
                             rx.divider(margin_y="1em"),
                         ),
                     ),

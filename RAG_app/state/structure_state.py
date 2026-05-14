@@ -13,8 +13,8 @@ class StructureState(BaseState):
     selected_document: str = ""
     available_documents: List[str] = []
     current_summary: Dict[str, Any] = {}
-    current_hierarchy: List[Dict[str, Any]] = []
-    current_tables: List[Dict[str, Any]] = []
+    current_hierarchy_html: str = ""
+    current_tables_html: List[Dict[str, Any]] = []
     current_pictures: List[Dict[str, Any]] = []
 
     @rx.var
@@ -85,7 +85,7 @@ class StructureState(BaseState):
         logger.info("structure_batches_found", batch_count=len(selected_batches), session_id=self.session_id)
         visualizer = DocumentStructureVisualizer(selected_batches)
         self.current_summary = visualizer.get_document_summary()
-        self.current_hierarchy = visualizer.get_document_hierarchy()
-        self.current_tables = visualizer.get_tables_info()
+        self.current_hierarchy_html = visualizer.get_hierarchy_html()
+        self.current_tables_html = visualizer.get_tables_html()
         self.current_pictures = visualizer.get_pictures_info()
         logger.info("structure_loaded", session_id=self.session_id, summary=self.current_summary)
