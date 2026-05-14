@@ -2,7 +2,6 @@ import reflex as rx
 from typing import List, Dict, Any
 
 from ..core.session_registry import get_registry
-from ..core.structure import DocumentStructureVisualizer
 from ..core.logging_config import logger
 from .base_state import BaseState
 
@@ -37,24 +36,20 @@ class StructureState(BaseState):
         logger.info("load_available_documents_called", session_id=self.session_id)
         registry = get_registry()
         entry = registry.get(self.session_id)
-        docling_docs = entry.get("docling_docs", [])
+        doc_structures = entry.get("doc_structures", {})
 
-        if not docling_docs:
+        if not doc_structures:
             self.available_documents = []
-            logger.info("no_docling_docs_found", session_id=self.session_id)
+            logger.info("no_doc_structures_found", session_id=self.session_id)
             return
 
-        unique_files = set()
-        for batch in docling_docs:
-            filename = batch['filename']
-            if " (Pages" in filename:
-                base_name = filename.split(" (Pages")[0]
-            else:
-                base_name = filename
-            unique_files.add(base_name)
-
-        self.available_documents = sorted(list(unique_files))
-        logger.info("available_documents_loaded", count=len(self.available_documents), documents=self.available_documents, session_id=self.session_id)
+        self.available_documents = sorted(list(doc_structures.keys()))
+        logger.info(
+            "available_documents_loaded",
+            count=len(self.available_documents),
+            documents=self.available_documents,
+            session_id=self.session_id,
+        )
 
         if self.available_documents and not self.selected_document:
             self.selected_document = self.available_documents[0]
@@ -75,27 +70,15 @@ class StructureState(BaseState):
 
         registry = get_registry()
         entry = registry.get(self.session_id)
-        docling_docs = entry.get("docling_docs", [])
+        doc_structures = entry.get("doc_structures", {})
 
-        selected_batches = []
-        for batch in docling_docs:
-            full_name = batch['filename']
-            if " (Pages" in full_name:
-                base_name = full_name.split(" (Pages")[0]
-            else:
-                base_name = full_name
-
-            if base_name == self.selected_document:
-                selected_batches.append(batch)
-
-        if not selected_batches:
-            logger.warning("no_batches_found", document=self.selected_document, session_id=self.session_id)
+        doc_data = doc_structures.get(self.selected_document, {})
+        if not doc_data:
+            logger.warning("no_structure_data_found", document=self.selected_document, session_id=self.session_id)
             return
 
-        logger.info("structure_batches_found", batch_count=len(selected_batches), session_id=self.session_id)
-        visualizer = DocumentStructureVisualizer(selected_batches)
-        self.current_summary = visualizer.get_document_summary()
-        self.current_hierarchy_html = visualizer.get_hierarchy_html()
-        self.current_tables_html = visualizer.get_tables_html()
-        self.current_pictures = visualizer.get_pictures_info()
+        self.current_summary = doc_data.get("summary", {})
+        self.current_hierarchy_html = doc_data.get("hierarchy_html", "")
+        self.current_tables_html = doc_data.get("tables_html", [])
+        self.current_pictures = doc_data.get("pictures", [])
         logger.info("structure_loaded", session_id=self.session_id, summary=self.current_summary)

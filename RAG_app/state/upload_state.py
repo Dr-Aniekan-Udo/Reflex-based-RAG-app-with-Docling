@@ -1,6 +1,8 @@
-import reflex as rx
 import asyncio
+import reflex as rx
 from typing import List, Dict, Tuple, Any
+
+from langchain_core.documents import Document
 
 from ..core.session_registry import get_registry
 from ..core.document_processor import DocumentProcessor
@@ -8,6 +10,8 @@ from ..core.vector_store import VectorStoreManager
 from ..core.tools import create_search_tool
 from ..core.agent import create_documentation_agent
 from ..core.logging_config import logger
+from ..core.executor import get_executor
+from ..core.worker import process_documents
 from .base_state import BaseState
 from .structure_state import StructureState
 
@@ -70,14 +74,15 @@ class UploadState(BaseState):
         self.uploaded_files = uploaded_info
         self.document_stats["total_files"] = len(uploaded_info)
         self.document_stats["total_size_mb"] = round(total_size_mb, 2)
-        self.current_task_message = f"✓ {len(uploaded_info)} file(s) ready. Click 'Process & Vectorize' to analyze."
+        self.current_task_message = f"✓ {len(uploaded_info)} file(s) ready. Click 'Process' to analyze."
         logger.info("upload_complete", file_count=len(file_data), total_mb=round(total_size_mb, 2), session_id=self.session_id)
 
     @rx.event(background=True)
     async def start_processing(self):
         """
-        Background task that does the heavy lifting:
-        Docling → Chunking → Vectorization → Agent creation.
+        Background task that orchestrates document processing.
+        CPU-bound Docling work is offloaded to ProcessPoolExecutor.
+        I/O-bound embedding runs in ThreadPoolExecutor.
         """
         global _upload_buffers
         registry = get_registry()
@@ -91,42 +96,78 @@ class UploadState(BaseState):
                 return
             self.is_processing = True
             self.process_progress = 10
-            self.current_task_message = "Processing documents with Docling..."
+            self.current_task_message = "Processing documents with Docling (CPU worker)..."
 
         try:
             file_data = _upload_buffers.pop(self.session_id, [])
             logger.info("processing_file_data_retrieved", file_count=len(file_data), session_id=self.session_id)
 
-            processor = DocumentProcessor()
-            documents, docling_docs = processor.process_uploaded_files(file_data)
-            logger.info("docling_complete", doc_count=len(documents), session_id=self.session_id)
+            # ─── Offload CPU-bound Docling to worker process ───
+            result = None
+            try:
+                executor = get_executor()
+                future = executor.submit(process_documents, file_data)
+                result = await asyncio.wrap_future(future)
+                logger.info("worker_complete", success=result.get("success"), session_id=self.session_id)
+            except Exception as pool_err:
+                logger.error("process_pool_failed", error=str(pool_err), fallback="sync", session_id=self.session_id)
+                # Fallback: run synchronously (blocks event loop but ensures functionality)
+                result = process_documents(file_data)
+
+            if not result.get("success"):
+                error_msg = result.get("error", "Unknown processing error")
+                logger.error("processing_failed", error=error_msg, session_id=self.session_id)
+                async with self:
+                    self.is_processing = False
+                    self.current_task_message = f"Error: {error_msg}"
+                return
+
+            chunks_data = result["chunks"]
+            doc_structures = result["doc_structures"]
+            available_documents = result["available_documents"]
+            stats = result["stats"]
 
             async with self:
-                self.process_progress = 40
-                self.current_task_message = f"Processed {len(documents)} pages. Creating vector store..."
+                self.process_progress = 50
+                self.current_task_message = f"Processed {stats['total_pages']} pages. Creating embeddings..."
 
-            if not documents:
+            if not chunks_data:
                 async with self:
                     self.is_processing = False
                     self.current_task_message = "No documents were successfully processed."
-                logger.warning("processing_no_documents", session_id=self.session_id)
+                logger.warning("processing_no_chunks", session_id=self.session_id)
                 return
 
-            total_pages = sum(doc.metadata.get("total_pages", 0) for doc in documents)
+            # ─── Reconstruct Document objects ───
+            chunk_docs = [
+                Document(page_content=c["page_content"], metadata=c["metadata"])
+                for c in chunks_data
+            ]
 
+            # ─── Create vector store (embedding + Chroma) in thread pool ───
             vs_manager = VectorStoreManager()
-            chunks = vs_manager.chunk_documents(documents)
-            vectorstore = vs_manager.create_vectorstore(chunks)
-            logger.info("vectorstore_created", chunk_count=len(chunks), session_id=self.session_id)
+            try:
+                vectorstore = await asyncio.to_thread(
+                    vs_manager.create_vectorstore, chunk_docs
+                )
+                logger.info("vectorstore_created", chunk_count=len(chunk_docs), session_id=self.session_id)
+            except Exception as vs_err:
+                logger.error("vectorstore_creation_failed", error=str(vs_err), session_id=self.session_id)
+                async with self:
+                    self.is_processing = False
+                    self.current_task_message = f"Vector store error: {str(vs_err)}"
+                return
 
+            # Store in registry
             registry.set(self.session_id, "vectorstore", vectorstore)
-            registry.set(self.session_id, "docling_docs", docling_docs)
+            registry.set(self.session_id, "doc_structures", doc_structures)
 
             async with self:
-                self.document_stats["total_pages"] = total_pages
+                self.document_stats["total_pages"] = stats["total_pages"]
                 self.process_progress = 80
                 self.current_task_message = "Initializing AI agent..."
 
+            # ─── Create agent ───
             search_tool = create_search_tool(vectorstore)
             agent = create_documentation_agent([search_tool])
             registry.set(self.session_id, "agent", agent)
@@ -137,8 +178,8 @@ class UploadState(BaseState):
                 self.is_processing = False
                 self.process_progress = 100
                 self.current_task_message = "✅ Documents processed successfully! Ready to chat."
-                self.document_stats["vector_count"] = len(chunks)
-                logger.info("processing_complete", session_id=self.session_id, total_chunks=len(chunks))
+                self.document_stats["vector_count"] = stats["total_chunks"]
+                logger.info("processing_complete", session_id=self.session_id, total_chunks=len(chunk_docs))
 
         except Exception as e:
             logger.error("processing_error", error=str(e), session_id=self.session_id, exc_info=True)
