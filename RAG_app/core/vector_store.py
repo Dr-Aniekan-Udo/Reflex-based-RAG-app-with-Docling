@@ -36,17 +36,58 @@ class VectorStoreManager:
 
     def create_vectorstore(self, chunks: List[Document]) -> Chroma:
         print(f"🔢 Creating vector store with {len(chunks)} chunks...")
+
+        texts = [c.page_content for c in chunks]
+        metadatas = [c.metadata for c in chunks]
+        ids = [str(i) for i in range(len(chunks))]
+
+        # Attempt batch embedding first
         try:
-            vectorstore = Chroma.from_documents(
-                documents=chunks,
-                embedding=self.embeddings,
-                collection_name="documents"
-            )
-            print("✅ Vector store created successfully")
-            return vectorstore
-        except Exception as e:
-            print(f"❌ Error creating vector store: {e}")
-            raise
+            embeddings = self.embeddings.embed_documents(texts)
+            if len(embeddings) != len(texts):
+                print(
+                    f"⚠️ Embedding count mismatch: {len(embeddings)} vs {len(texts)}. "
+                    "Falling back to one-by-one embedding..."
+                )
+                raise ValueError("Embedding count mismatch")
+        except Exception as batch_err:
+            print(f"⚠️ Batch embedding failed ({batch_err}). Falling back to one-by-one embedding...")
+            embeddings = []
+            valid_texts = []
+            valid_metadatas = []
+            valid_ids = []
+            for idx, text in enumerate(texts):
+                try:
+                    emb = self.embeddings.embed_query(text)
+                    embeddings.append(emb)
+                    valid_texts.append(text)
+                    valid_metadatas.append(metadatas[idx])
+                    valid_ids.append(ids[idx])
+                except Exception as single_err:
+                    print(f"⚠️ Skipping chunk {idx} due to embedding error: {single_err}")
+                    continue
+
+            texts = valid_texts
+            metadatas = valid_metadatas
+            ids = valid_ids
+            print(f"✅ One-by-one embedding complete: {len(embeddings)} embeddings")
+
+        # Create empty Chroma instance with embedding_function so similarity_search works later
+        vectorstore = Chroma(
+            embedding_function=self.embeddings,
+            collection_name="documents"
+        )
+
+        # Upsert pre-computed embeddings directly into the underlying collection
+        vectorstore._collection.upsert(
+            embeddings=embeddings,
+            documents=texts,
+            metadatas=metadatas,
+            ids=ids
+        )
+
+        print(f"✅ Vector store created successfully with {len(embeddings)} chunks")
+        return vectorstore
 
     def search_similar(self, vectorstore: Chroma, query: str, k: int = 8) -> List[Document]:
         try:
