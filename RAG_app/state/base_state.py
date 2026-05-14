@@ -20,7 +20,4 @@ class BaseState(rx.State):
         else:
             logger.info("session_already_exists", session_id=self.session_id)
 
-    @rx.event
-    def toggle_theme(self):
-        """Toggle between light and dark mode."""
-        return rx.toggle_color_mode()
+

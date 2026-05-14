@@ -37,8 +37,8 @@ def index() -> rx.Component:
                 rx.tabs.content(
                     rx.box(
                         chat_interface(),
-                        height="100%",
-                        min_height="0",
+                        height="calc(100dvh - 120px)",
+                        min_height="400px",
                     ),
                     value="chat",
                     height="100%",
@@ -50,8 +50,8 @@ def index() -> rx.Component:
                     rx.box(
                         structure_view(),
                         on_mount=StructureState.load_available_documents,
-                        height="100%",
-                        min_height="0",
+                        height="calc(100dvh - 120px)",
+                        min_height="400px",
                         overflow_y="auto",
                     ),
                     value="structure",

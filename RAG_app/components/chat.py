@@ -138,7 +138,7 @@ def chat_interface() -> rx.Component:
                             padding="0.5em",
                             spacing="3",
                         ),
-                        height="100%",
+                        height="calc(100dvh - 280px)",
                         width="100%",
                         scrollbars="vertical",
                     ),

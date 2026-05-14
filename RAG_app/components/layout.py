@@ -188,7 +188,7 @@ def sidebar() -> rx.Component:
                         light=rx.icon("moon", size=16),
                         dark=rx.icon("sun", size=16),
                     ),
-                    on_click=BaseState.toggle_theme,
+                    on_click=rx.toggle_color_mode,
                     variant="ghost",
                     color_scheme="orange",
                     size="2",
