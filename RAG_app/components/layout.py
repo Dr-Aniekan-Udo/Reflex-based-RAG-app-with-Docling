@@ -89,7 +89,11 @@ def sidebar() -> rx.Component:
                     width="100%",
                 ),
                 rx.button(
-                    rx.icon("trash-2", size=14),
+                    rx.hstack(
+                        rx.icon("trash-2", size=14),
+                        rx.text("Clear", size="1"),
+                        spacing="2",
+                    ),
                     on_click=UploadState.clear_documents,
                     disabled=UploadState.is_processing,
                     variant="soft",

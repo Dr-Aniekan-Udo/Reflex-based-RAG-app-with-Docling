@@ -110,7 +110,11 @@ def chat_interface() -> rx.Component:
                 ),
                 rx.spacer(),
                 rx.button(
-                    rx.icon("trash-2", size=14),
+                    rx.hstack(
+                        rx.icon("trash-2", size=14),
+                        rx.text("Clear Chat", size="1"),
+                        spacing="2",
+                    ),
                     on_click=ChatState.clear_history,
                     variant="soft",
                     color_scheme="red",
