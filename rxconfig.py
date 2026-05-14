@@ -1,8 +1,17 @@
+import os
 import reflex as rx
+
+# Detect GitHub Codespaces and set the correct backend API URL
+if os.environ.get("CODESPACES") == "true":
+    codespace_name = os.environ.get("CODESPACE_NAME")
+    api_url = f"https://{codespace_name}-8002.app.github.dev"
+else:
+    api_url = "http://localhost:8002"
 
 config = rx.Config(
     app_name="RAG_app",
     telemetry_enabled=False,
+    api_url=api_url,
     plugins=[
         rx.plugins.SitemapPlugin(),
         rx.plugins.TailwindV4Plugin(),
