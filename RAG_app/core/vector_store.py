@@ -29,6 +29,8 @@ class VectorStoreManager:
     def chunk_documents(self, documents: List[Document]) -> List[Document]:
         print(f"✂️ Chunking {len(documents)} documents...")
         chunks = self.text_splitter.split_documents(documents)
+        # Filter out empty/whitespace-only chunks to prevent embedding length mismatch
+        chunks = [c for c in chunks if c.page_content and c.page_content.strip()]
         print(f"✅ Created {len(chunks)} chunks")
         return chunks
 
