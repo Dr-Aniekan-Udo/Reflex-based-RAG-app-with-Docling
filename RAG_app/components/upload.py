@@ -1,18 +1,18 @@
 """
 Upload component - File upload interface with progress tracking.
-Shows file selection buffer, upload status, and processed files.
+Simplified: drop files → they auto-read into memory → click Process.
 """
 import reflex as rx
 from ..state.upload_state import UploadState
 
 
 def upload_view() -> rx.Component:
-    """Document upload and processing interface with file selection buffer"""
+    """Document upload and processing interface."""
     return rx.card(
         rx.vstack(
             rx.heading("📤 Document Ingestion", size="4", margin_bottom="1em"),
 
-            # Upload zone
+            # Upload zone — files are read into memory on drop/selection
             rx.upload(
                 rx.vstack(
                     rx.button(
@@ -40,29 +40,23 @@ def upload_view() -> rx.Component:
                 max_files=10,
                 width="100%",
                 background="#f7fafc",
-                on_drop=UploadState.handle_file_selection(
+                on_change=UploadState.handle_upload(
                     rx.upload_files(upload_id="upload_files")
                 ),
             ),
 
-            # File Selection Buffer
+            # Files ready section
             rx.cond(
-                UploadState.selected_files.length() > 0,
+                UploadState.uploaded_files.length() > 0,
                 rx.box(
-                    rx.heading("📋 Selected Files", size="3", margin_bottom="0.5em"),
+                    rx.heading("📋 Files Ready", size="3", margin_bottom="0.5em"),
                     rx.vstack(
                         rx.foreach(
-                            UploadState.selected_files,
+                            UploadState.uploaded_files,
                             lambda filename: rx.hstack(
-                                rx.icon("file", size=16, color="blue"),
+                                rx.icon("file", size=16, color="orange"),
                                 rx.text(filename, size="2", flex="1"),
-                                rx.icon_button(
-                                    rx.icon("x", size=16),
-                                    on_click=UploadState.remove_selected_file(filename),
-                                    size="1",
-                                    variant="ghost",
-                                    color_scheme="red",
-                                ),
+                                rx.badge("In Memory", color_scheme="orange", size="1"),
                                 spacing="2",
                                 width="100%",
                                 align="center",
@@ -74,8 +68,8 @@ def upload_view() -> rx.Component:
                     ),
                     margin_top="1em",
                     padding="1em",
-                    background="#fff3cd",
-                    border="1px solid #ffc107",
+                    background="#fff8e1",
+                    border="1px solid #ffb300",
                     border_radius="6px",
                 ),
             ),
@@ -83,21 +77,10 @@ def upload_view() -> rx.Component:
             # Control buttons
             rx.hstack(
                 rx.button(
-                    "📤 Upload Files",
-                    on_click=UploadState.handle_upload(
-                        rx.upload_files(upload_id="upload_files")
-                    ),
-                    loading=UploadState.is_uploading,
-                    disabled=UploadState.selected_files.length() == 0,
-                    variant="solid",
-                    color_scheme="blue",
-                ),
-                rx.button(
                     "🚀 Process & Vectorize",
                     on_click=UploadState.start_vectorization,
                     disabled=(
-                        UploadState.is_uploading
-                        | UploadState.is_processing
+                        UploadState.is_processing
                         | (UploadState.uploaded_files.length() == 0)
                     ),
                     variant="surface",
@@ -106,7 +89,7 @@ def upload_view() -> rx.Component:
                 rx.button(
                     "🗑️ Clear All",
                     on_click=UploadState.clear_documents,
-                    disabled=UploadState.is_uploading | UploadState.is_processing,
+                    disabled=UploadState.is_processing,
                     variant="soft",
                     color_scheme="red",
                 ),
@@ -120,20 +103,13 @@ def upload_view() -> rx.Component:
 
             # Progress section
             rx.cond(
-                (UploadState.upload_progress > 0) | (UploadState.process_progress > 0),
+                UploadState.process_progress > 0,
                 rx.box(
                     rx.text(
                         UploadState.current_task_message,
                         size="2",
                         weight="bold",
                         color="#2d3748",
-                    ),
-                    rx.text("Upload Progress", size="1", margin_top="0.5em"),
-                    rx.progress(
-                        value=UploadState.upload_progress,
-                        width="100%",
-                        color_scheme="blue",
-                        height="8px",
                     ),
                     rx.text("Processing Progress", size="1", margin_top="0.5em"),
                     rx.progress(
@@ -146,36 +122,6 @@ def upload_view() -> rx.Component:
                     padding="1em",
                     border_radius="6px",
                     width="100%",
-                ),
-            ),
-
-            # Uploaded files (in memory, ready to process)
-            rx.cond(
-                UploadState.uploaded_files.length() > 0,
-                rx.cond(
-                    UploadState.processed_files.length() == 0,
-                    rx.box(
-                        rx.heading("💾 Uploaded to Memory", size="3", margin_bottom="0.5em"),
-                        rx.text("Files are ready for processing", size="1", color="gray", margin_bottom="0.5em"),
-                        rx.vstack(
-                            rx.foreach(
-                                UploadState.uploaded_files,
-                                lambda filename: rx.hstack(
-                                    rx.icon("file", size=16, color="orange"),
-                                    rx.text(filename, size="2"),
-                                    rx.badge("In Memory", color_scheme="orange", size="1"),
-                                    spacing="2",
-                                ),
-                            ),
-                            align="start",
-                            spacing="1",
-                        ),
-                        margin_top="1em",
-                        padding="1em",
-                        background="#fff8e1",
-                        border="1px solid #ffb300",
-                        border_radius="6px",
-                    ),
                 ),
             ),
 
