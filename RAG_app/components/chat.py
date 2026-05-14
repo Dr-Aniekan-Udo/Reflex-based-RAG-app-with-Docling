@@ -26,7 +26,7 @@ def message_bubble(msg: dict) -> rx.Component:
             rx.avatar(
                 fallback="👤",
                 size="2",
-                color_scheme="slate",
+                color_scheme="gray",
             ),
             align="end",
             width="100%",
