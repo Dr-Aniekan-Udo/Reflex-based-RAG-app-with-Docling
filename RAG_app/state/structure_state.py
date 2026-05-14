@@ -23,6 +23,16 @@ class StructureState(BaseState):
         return sorted(text_types.items(), key=lambda x: -x[1])
 
     @rx.event
+    def clear_structure(self):
+        """Reset all document analysis state when documents are cleared."""
+        self.selected_document = ""
+        self.available_documents = []
+        self.current_summary = {}
+        self.current_hierarchy_html = ""
+        self.current_tables_html = []
+        self.current_pictures = []
+
+    @rx.event
     async def load_available_documents(self):
         logger.info("load_available_documents_called", session_id=self.session_id)
         registry = get_registry()

@@ -9,6 +9,7 @@ from ..core.tools import create_search_tool
 from ..core.agent import create_documentation_agent
 from ..core.logging_config import logger
 from .base_state import BaseState
+from .structure_state import StructureState
 
 
 # Module-level buffer for uploaded bytes.
@@ -165,3 +166,4 @@ class UploadState(BaseState):
         self.process_progress = 0
         self.current_task_message = "Ready to upload documents"
         self.is_processing = False
+        return StructureState.clear_structure()
