@@ -18,9 +18,11 @@ config = rx.Config(
         rx.plugins.TailwindV4Plugin(),
         rx.plugins.RadixThemesPlugin(
             theme=rx.theme(
-                appearance="light",
-                accent_color="blue",
+                appearance="dark",
+                accent_color="orange",
+                gray_color="slate",
                 radius="large",
+                panel_background="translucent",
             )
         ),
     ],

@@ -17,34 +17,50 @@ body {
     scroll-behavior: smooth;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
+/* Custom scrollbar - Light Mode */
+::webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 
-::-webkit-scrollbar-track {
+::webkit-scrollbar-track {
     background: #f1f1f1;
 }
 
-::-webkit-scrollbar-thumb {
+::webkit-scrollbar-thumb {
     background: #cbd5e0;
     border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+::webkit-scrollbar-thumb:hover {
     background: #a0aec0;
 }
 
-/* Card shadows */
+/* Dark Mode Scrollbar */
+[data-theme="dark"] ::webkit-scrollbar-track {
+    background: #1c1917;
+}
+
+[data-theme="dark"] ::webkit-scrollbar-thumb {
+    background: #44403c;
+    border-radius: 4px;
+}
+
+[data-theme="dark"] ::webkit-scrollbar-thumb:hover {
+    background: #57534e;
+}
+
+/* Card shadows and transitions */
 .rx-Card {
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Upload area hover effect */
 .rx-Upload:hover {
-    border-color: #3182ce !important;
-    background-color: #ebf8ff !important;
+    border-color: #ea580c !important;
+    background-color: rgba(234, 88, 12, 0.05) !important;
 }
 
 /* Markdown styling in chat */
@@ -57,15 +73,15 @@ body {
 }
 
 .rx-Markdown code {
-    background-color: #f7fafc;
+    background-color: rgba(234, 88, 12, 0.1);
     padding: 0.2em 0.4em;
     border-radius: 3px;
     font-size: 0.9em;
 }
 
 .rx-Markdown pre {
-    background-color: #2d3748;
-    color: #e2e8f0;
+    background-color: #1c1917;
+    color: #fafaf9;
     padding: 1em;
     border-radius: 6px;
     overflow-x: auto;
@@ -100,6 +116,28 @@ table {
 th, td {
     padding: 0.75em;
     text-align: left;
+}
+
+/* Message appear animation */
+@keyframes message-appear {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Typing indicator */
+@keyframes typing-bounce {
+    0%, 60%, 100% {
+        transform: translateY(0);
+    }
+    30% {
+        transform: translateY(-4px);
+    }
 }
 
 /* Responsive adjustments */

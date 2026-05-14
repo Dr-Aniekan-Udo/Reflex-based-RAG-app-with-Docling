@@ -3,7 +3,6 @@ Dashboard page - Main RAG interface.
 """
 import reflex as rx
 from ..components.layout import layout
-from ..components.upload import upload_view
 from ..components.chat import chat_interface
 from ..components.structure import structure_view
 from ..state.base_state import BaseState
@@ -14,29 +13,30 @@ def index() -> rx.Component:
     """Main dashboard view"""
     return layout(
         rx.vstack(
-            rx.heading("📄 Enterprise Document Intelligence", size="6", margin_bottom="0.1em"),
-            rx.text(
-                "Secure, modular RAG architecture powered by Reflex, Docling, and LangGraph.",
-                color="gray",
-                size="2",
-                margin_bottom="1em",
-            ),
-
-            # Main tabs
+            # ─── Tabs ───
             rx.tabs.root(
                 rx.tabs.list(
-                    rx.tabs.trigger("💬 Chat Interface", value="chat"),
-                    rx.tabs.trigger("📊 Document Analysis", value="structure"),
+                    rx.tabs.trigger(
+                        rx.hstack(rx.icon("message-square"), rx.text("Chat"), spacing="2"),
+                        value="chat",
+                    ),
+                    rx.tabs.trigger(
+                        rx.hstack(rx.icon("bar-chart-3"), rx.text("Analysis"), spacing="2"),
+                        value="structure",
+                    ),
+                    justify="center",
+                    background=rx.color_mode_cond(
+                        light=rx.color("slate", 3),
+                        dark=rx.color("slate", 3),
+                    ),
+                    border_radius="full",
+                    padding="0.25em",
                 ),
 
                 # Chat tab
                 rx.tabs.content(
-                    rx.grid(
-                        rx.box(upload_view(), height="100%"),
-                        rx.box(chat_interface(), height="100%"),
-                        columns="2",
-                        spacing="4",
-                        width="100%",
+                    rx.box(
+                        chat_interface(),
                         height="100%",
                         min_height="0",
                     ),
@@ -66,7 +66,7 @@ def index() -> rx.Component:
             ),
 
             width="100%",
-            max_width="1400px",
+            max_width="1200px",
             margin_x="auto",
             height="100%",
             spacing="0",

@@ -7,7 +7,6 @@ class BaseState(rx.State):
     """Base state with session isolation and shared globals."""
 
     session_id: str = ""
-    theme_mode: str = "light"
     app_initialized: bool = False
 
     @rx.event
@@ -20,3 +19,8 @@ class BaseState(rx.State):
             logger.info("session_initialized", session_id=self.session_id)
         else:
             logger.info("session_already_exists", session_id=self.session_id)
+
+    @rx.event
+    def toggle_theme(self):
+        """Toggle between light and dark mode."""
+        return rx.toggle_color_mode()

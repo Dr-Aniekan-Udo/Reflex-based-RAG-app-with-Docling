@@ -6,32 +6,111 @@ from ..state.chat_state import ChatState
 
 
 def message_bubble(msg: dict) -> rx.Component:
-    """Render a single chat message."""
+    """Render a single chat message with avatar."""
     is_user = msg["role"] == "user"
-    return rx.box(
-        rx.markdown(msg["content"]),
-        background=rx.cond(is_user, "#3182ce", "#edf2f7"),
-        color=rx.cond(is_user, "white", "#2d3748"),
-        padding_x="1em",
-        padding_y="0.5em",
-        border_radius=rx.cond(is_user, "15px 15px 0 15px", "0 15px 15px 15px"),
-        align_self=rx.cond(is_user, "end", "start"),
-        max_width="80%",
-        box_shadow="sm",
-        margin_bottom="0.5em",
+    return rx.cond(
+        is_user,
+        # ─── User Message ───
+        rx.hstack(
+            rx.spacer(),
+            rx.vstack(
+                rx.box(
+                    rx.markdown(msg["content"]),
+                    color="white",
+                ),
+                background=rx.color("orange", 9),
+                border_radius="16px 16px 0 16px",
+                padding="0.75em 1em",
+                max_width="80%",
+            ),
+            rx.avatar(
+                fallback="👤",
+                size="2",
+                color_scheme="slate",
+            ),
+            align="end",
+            width="100%",
+            spacing="3",
+        ),
+        # ─── AI Message ───
+        rx.hstack(
+            rx.avatar(
+                fallback="🤖",
+                size="2",
+                color_scheme="orange",
+            ),
+            rx.vstack(
+                rx.box(
+                    rx.markdown(msg["content"]),
+                    color=rx.color_mode_cond(
+                        light=rx.color("slate", 12),
+                        dark=rx.color("slate", 11),
+                    ),
+                ),
+                background=rx.color_mode_cond(
+                    light=rx.color("slate", 2),
+                    dark=rx.color("slate", 3),
+                ),
+                border_radius="0 16px 16px 16px",
+                padding="0.75em 1em",
+                max_width="80%",
+                border=f"1px solid {rx.color_mode_cond(light=rx.color('slate', 4), dark='rgba(255,255,255,0.06)')}",
+            ),
+            align="start",
+            width="100%",
+            spacing="3",
+        ),
+    )
+
+
+def welcome_state() -> rx.Component:
+    """Welcome screen when no messages exist."""
+    return rx.vstack(
+        rx.box(
+            rx.icon("bot", size=64, color="orange"),
+            padding="1em",
+            border_radius="full",
+            background=rx.color_mode_cond(
+                light=rx.color("orange", 2),
+                dark=rx.color("orange", 3),
+            ),
+        ),
+        rx.heading("RAG AI Assistant", size="6", weight="bold"),
+        rx.text(
+            "Upload documents and ask me anything about them.",
+            color="gray",
+            size="3",
+            text_align="center",
+        ),
+        rx.text(
+            "I can summarize, extract tables, analyze images, and answer questions.",
+            color="gray",
+            size="2",
+            text_align="center",
+        ),
+        width="100%",
+        height="100%",
+        align="center",
+        justify="center",
+        spacing="4",
     )
 
 
 def chat_interface() -> rx.Component:
-    """Main chat interface with history and input"""
+    """Main chat interface with history and input."""
     return rx.card(
         rx.vstack(
-            # Header
+            # ─── Header ───
             rx.hstack(
-                rx.heading("💬 Knowledge Assistant", size="4"),
+                rx.hstack(
+                    rx.icon("bot", size=20, color="orange"),
+                    rx.heading("Knowledge Assistant", size="4"),
+                    spacing="2",
+                    align="center",
+                ),
                 rx.spacer(),
                 rx.button(
-                    "Clear History",
+                    rx.icon("trash-2", size=14),
                     on_click=ChatState.clear_history,
                     variant="soft",
                     color_scheme="red",
@@ -39,60 +118,81 @@ def chat_interface() -> rx.Component:
                 ),
                 width="100%",
                 align="center",
-                margin_bottom="0.5em",
+                padding_bottom="0.5em",
             ),
 
-            # Chat history area
-            rx.scroll_area(
-                rx.vstack(
-                    rx.foreach(
-                        ChatState.chat_history,
-                        message_bubble,
+            rx.divider(),
+
+            # ─── Chat Area ───
+            rx.box(
+                rx.cond(
+                    ChatState.chat_history.length() == 0,
+                    welcome_state(),
+                    rx.scroll_area(
+                        rx.vstack(
+                            rx.foreach(
+                                ChatState.chat_history,
+                                message_bubble,
+                            ),
+                            width="100%",
+                            padding="0.5em",
+                            spacing="3",
+                        ),
+                        height="100%",
+                        width="100%",
+                        scrollbars="vertical",
                     ),
-                    width="100%",
-                    padding="0.5em",
                 ),
-                height="50vh",
+                flex="1",
                 width="100%",
-                border="1px solid #e2e8f0",
-                border_radius="8px",
-                background="white",
-                scrollbars="vertical",
+                min_height="0",
             ),
 
-            # Input area
+            rx.divider(),
+
+            # ─── Input Area (Fixed Bottom) ───
             rx.hstack(
                 rx.input(
-                    placeholder="Ask a question about the uploaded documents...",
+                    placeholder="Ask about your documents...",
                     value=ChatState.current_question,
                     on_change=ChatState.set_question,
                     on_key_down=ChatState.handle_key_down,
-                    width="100%",
-                    border_color="#cbd5e0",
+                    size="3",
+                    border_radius="full",
+                    flex="1",
+                    border_color=rx.color_mode_cond(
+                        light=rx.color("slate", 6),
+                        dark="rgba(255,255,255,0.1)",
+                    ),
                 ),
-                rx.button(
+                rx.icon_button(
                     rx.icon("send", size=18),
                     on_click=ChatState.process_question,
                     loading=ChatState.is_streaming,
-                    color_scheme="blue",
+                    color_scheme="orange",
+                    size="3",
+                    radius="full",
                 ),
                 width="100%",
-                padding_top="1em",
+                spacing="2",
+                padding_top="0.5em",
             ),
 
-            # Status indicator
+            # ─── Status ───
             rx.cond(
                 ChatState.is_streaming,
                 rx.hstack(
-                    rx.spinner(size="1"),
+                    rx.spinner(size="2", color="orange"),
                     rx.text("AI is thinking...", size="1", color="gray"),
                     spacing="2",
-                    margin_top="0.5em",
                 ),
             ),
 
             width="100%",
+            height="100%",
+            spacing="2",
         ),
         width="100%",
         height="100%",
+        variant="surface",
     )
