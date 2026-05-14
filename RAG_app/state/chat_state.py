@@ -1,103 +1,94 @@
-"""
-Chat state for managing conversation flow.
-Handles streaming responses from the LLM agent.
-"""
 import reflex as rx
 import asyncio
-from typing import List
-from pydantic import BaseModel
-from ..services import get_llm_service
+import uuid
+from typing import List, Dict
+
+from ..core.session_registry import get_registry
+from .base_state import BaseState
 
 
-class QA(BaseModel):
-    """Question-Answer pair model"""
-    question: str
-    answer: str
+class ChatState(BaseState):
+    """State management for chat interface."""
 
-
-class ChatState(rx.State):
-    """State management for chat interface"""
-    
-    # Chat history
-    chat_history: List[QA] = []
-    
-    # Current input
+    chat_history: List[Dict[str, str]] = []
     current_question: str = ""
-    
-    # Streaming status
     is_streaming: bool = False
-    
-    # Thread ID for conversation memory
     thread_id: str = "main_conversation"
-    
+
     @rx.event
     def set_question(self, value: str):
-        """Bind input field value"""
         self.current_question = value
-    
+
     @rx.event
     def handle_key_down(self, key: str):
-        """Handle Enter key press to submit"""
         if key == "Enter":
             return ChatState.process_question
-    
+
     @rx.event
     def clear_history(self):
-        """Clear chat history"""
         self.chat_history = []
-        llm_service = get_llm_service()
-        llm_service.reset()
-    
+        # Rotate thread_id to wipe conversation memory for this session only
+        self.thread_id = str(uuid.uuid4())
+
     @rx.event(background=True)
     async def process_question(self):
-        """
-        Process user question with streaming response.
-        Background task to handle async LLM streaming.
-        """
-        # Lock 1: Capture input and setup
         async with self:
             if not self.current_question.strip():
                 return
-            
             question_text = self.current_question
             self.current_question = ""
             self.is_streaming = True
-            
-            # Add empty answer placeholder
-            self.chat_history.append(QA(question=question_text, answer=""))
-        
-        # Get LLM service
-        llm_service = get_llm_service()
-        
-        if not llm_service.agent:
+            self.chat_history.append({"role": "user", "content": question_text})
+            self.chat_history.append({"role": "assistant", "content": ""})
+
+        registry = get_registry()
+        entry = registry.get(self.session_id)
+        agent = entry.get("agent")
+
+        if not agent:
             async with self:
-                self.chat_history[-1].answer = "⚠️ Please upload and process documents first before asking questions."
+                self.chat_history[-1]["content"] = "⚠️ Please upload and process documents first before asking questions."
                 self.is_streaming = False
             return
-        
+
+        config = {"configurable": {"thread_id": self.thread_id}}
+        accumulated = ""
+
         try:
-            # Stream response
-            accumulated_answer = ""
-            
-            async for token in llm_service.stream_response(
-                question_text,
-                self.thread_id
+            from langchain_core.messages import HumanMessage
+
+            async for msg, metadata in agent.astream(
+                {"messages": [HumanMessage(content=question_text)]},
+                config=config,
+                stream_mode="messages"
             ):
-                accumulated_answer += token
-                
-                # Lock 2: Update answer incrementally
-                async with self:
-                    self.chat_history[-1].answer = accumulated_answer
-                
-                # Small delay for smooth streaming
-                await asyncio.sleep(0.02)
-            
+                langgraph_node = metadata.get("langgraph_node", "")
+                if "tools" in langgraph_node.lower() or "tool" in langgraph_node.lower():
+                    continue
+
+                if "agent" in langgraph_node.lower() and hasattr(msg, "content"):
+                    raw_content = msg.content
+                    content = ""
+                    if isinstance(raw_content, list):
+                        for part in raw_content:
+                            if isinstance(part, dict) and "text" in part:
+                                content += part["text"]
+                            elif isinstance(part, str):
+                                content += part
+                    else:
+                        content = str(raw_content)
+
+                    if content:
+                        accumulated += content
+                        async with self:
+                            self.chat_history[-1]["content"] = accumulated
+                        await asyncio.sleep(0.02)
+
         except Exception as e:
             print(f"Chat error: {e}")
             async with self:
-                self.chat_history[-1].answer = f"❌ Error: {str(e)}"
-        
+                self.chat_history[-1]["content"] = f"❌ Error: {str(e)}"
+
         finally:
-            # Lock 3: Finalize
             async with self:
                 self.is_streaming = False

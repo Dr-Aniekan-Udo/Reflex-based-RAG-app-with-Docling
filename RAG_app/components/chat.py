@@ -2,38 +2,23 @@
 Chat component - Conversational interface with streaming responses.
 """
 import reflex as rx
-from ..state.chat_state import ChatState, QA
+from ..state.chat_state import ChatState
 
 
-def message_bubble(qa: QA) -> rx.Component:
-    """Render a single question-answer exchange"""
-    return rx.vstack(
-        # User message (right-aligned, blue)
-        rx.box(
-            rx.text(qa.question, color="white", size="2"),
-            background="#3182ce",
-            padding_x="1em",
-            padding_y="0.5em",
-            border_radius="15px 15px 0 15px",
-            align_self="end",
-            margin_bottom="0.5em",
-            max_width="80%",
-            box_shadow="sm",
-        ),
-        # AI response (left-aligned, gray)
-        rx.box(
-            rx.markdown(qa.answer),
-            background="#edf2f7",
-            color="#2d3748",
-            padding_x="1em",
-            padding_y="0.5em",
-            border_radius="0 15px 15px 15px",
-            align_self="start",
-            max_width="80%",
-            box_shadow="sm",
-        ),
-        width="100%",
+def message_bubble(msg: dict) -> rx.Component:
+    """Render a single chat message."""
+    is_user = msg["role"] == "user"
+    return rx.box(
+        rx.markdown(msg["content"]),
+        background=rx.cond(is_user, "#3182ce", "#edf2f7"),
+        color=rx.cond(is_user, "white", "#2d3748"),
+        padding_x="1em",
         padding_y="0.5em",
+        border_radius=rx.cond(is_user, "15px 15px 0 15px", "0 15px 15px 15px"),
+        align_self=rx.cond(is_user, "end", "start"),
+        max_width="80%",
+        box_shadow="sm",
+        margin_bottom="0.5em",
     )
 
 
@@ -56,7 +41,7 @@ def chat_interface() -> rx.Component:
                 align="center",
                 margin_bottom="0.5em",
             ),
-            
+
             # Chat history area
             rx.scroll_area(
                 rx.vstack(
@@ -74,7 +59,7 @@ def chat_interface() -> rx.Component:
                 background="white",
                 scrollbars="vertical",
             ),
-            
+
             # Input area
             rx.hstack(
                 rx.input(
@@ -94,7 +79,7 @@ def chat_interface() -> rx.Component:
                 width="100%",
                 padding_top="1em",
             ),
-            
+
             # Status indicator
             rx.cond(
                 ChatState.is_streaming,
@@ -105,7 +90,7 @@ def chat_interface() -> rx.Component:
                     margin_top="0.5em",
                 ),
             ),
-            
+
             width="100%",
         ),
         width="100%",

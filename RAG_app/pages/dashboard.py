@@ -6,6 +6,7 @@ from ..components.layout import layout
 from ..components.upload import upload_view
 from ..components.chat import chat_interface
 from ..components.structure import structure_view
+from ..state.base_state import BaseState
 from ..state.structure_state import StructureState
 
 
@@ -20,14 +21,14 @@ def index() -> rx.Component:
                 size="3",
                 margin_bottom="2em",
             ),
-            
+
             # Main tabs
             rx.tabs.root(
                 rx.tabs.list(
                     rx.tabs.trigger("💬 Chat Interface", value="chat"),
                     rx.tabs.trigger("📊 Document Analysis", value="structure"),
                 ),
-                
+
                 # Chat tab
                 rx.tabs.content(
                     rx.grid(
@@ -39,7 +40,7 @@ def index() -> rx.Component:
                     ),
                     value="chat",
                 ),
-                
+
                 # Structure tab
                 rx.tabs.content(
                     rx.box(
@@ -48,11 +49,11 @@ def index() -> rx.Component:
                     ),
                     value="structure",
                 ),
-                
+
                 default_value="chat",
                 width="100%",
             ),
-            
+
             width="100%",
             max_width="1400px",
             margin_x="auto",

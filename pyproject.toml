@@ -15,9 +15,10 @@ dependencies = [
     "docling[rapidocr]>=2.55.0",
     "chromadb>=0.5.5",
     "langchain-chroma>=0.2.0",
-    # We pin the CPU versions here to prevent GPU bloat
-    "torch==2.5.1+cpu",
-    "torchvision==0.20.1+cpu",
+    # CPU-only PyTorch. uv uses the pytorch-cpu index below.
+    # >=2.6.0 required for Python 3.13 compatibility.
+    "torch>=2.6.0",
+    "torchvision>=0.21.0",
     "reflex>=0.8.24.post1",
     "pydantic>=2.12.5",
 ]

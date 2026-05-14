@@ -1,282 +1,181 @@
 """
-Structure visualization component - Document analysis views.
+Structure component - Document analysis tabs.
 """
 import reflex as rx
 from ..state.structure_state import StructureState
 
 
 def structure_view() -> rx.Component:
-    """Document structure visualization with tabs"""
+    """Document structure visualization with tabs."""
     return rx.vstack(
-        rx.heading("📊 Document Structure Analysis", size="6", margin_bottom="0.5em"),
+        rx.heading("📊 Document Analysis", size="4", margin_bottom="1em"),
 
-        rx.cond(
+        # Document selector
+        rx.select(
             StructureState.available_documents,
-            rx.vstack(
-                rx.select(
-                    StructureState.available_documents,
-                    value=StructureState.selected_document,
-                    on_change=StructureState.select_document,
-                    placeholder="Select a document to analyze",
-                    width="100%",
-                ),
-
-                rx.tabs.root(
-                    rx.tabs.list(
-                        rx.tabs.trigger("📝 Summary", value="summary"),
-                        rx.tabs.trigger("🗂️ Hierarchy", value="hierarchy"),
-                        rx.tabs.trigger("📊 Tables", value="tables"),
-                        rx.tabs.trigger("🖼️ Images", value="images"),
-                    ),
-
-                    rx.tabs.content(summary_tab(), value="summary"),
-                    rx.tabs.content(hierarchy_tab(), value="hierarchy"),
-                    rx.tabs.content(tables_tab(), value="tables"),
-                    rx.tabs.content(images_tab(), value="images"),
-
-                    default_value="summary",
-                    width="100%",
-                ),
-                width="100%",
-                spacing="4",
-            ),
-            rx.callout(
-                "👈 Please upload and process documents first to view their structure!",
-                icon="info",
-                size="2",
-            ),
-        ),
-        width="100%",
-        align="start",
-    )
-
-
-def summary_tab() -> rx.Component:
-    return rx.box(
-        rx.vstack(
-            rx.heading("Summary", size="4", margin_bottom="1em"),
-
-            rx.grid(
-                summary_card("Total Pages", StructureState.current_summary["num_pages"]),
-                summary_card("Tables", StructureState.current_summary["num_tables"]),
-                summary_card("Images", StructureState.current_summary["num_pictures"]),
-                summary_card("Text Items", StructureState.current_summary["num_texts"]),
-                columns="4",
-                spacing="4",
-                width="100%",
-            ),
-
-            rx.heading("Content Types", size="3", margin_top="2em", margin_bottom="1em"),
-            rx.cond(
-                StructureState.text_types_list,
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.table.column_header_cell("Type"),
-                            rx.table.column_header_cell("Count"),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            StructureState.text_types_list,
-                            lambda item: rx.table.row(
-                                rx.table.cell(item[0]),
-                                rx.table.cell(item[1]),
-                            ),
-                        ),
-                    ),
-                    width="100%",
-                ),
-                rx.text("No text content detected", size="2", color="gray"),
-            ),
-
-            align="start",
-            spacing="4",
+            value=StructureState.selected_document,
+            on_change=StructureState.select_document,
+            placeholder="Select a document...",
             width="100%",
         ),
-        padding="2em",
-    )
 
+        # Tabs
+        rx.tabs.root(
+            rx.tabs.list(
+                rx.tabs.trigger("📑 Summary", value="summary"),
+                rx.tabs.trigger("🏗️ Hierarchy", value="hierarchy"),
+                rx.tabs.trigger("📊 Tables", value="tables"),
+                rx.tabs.trigger("🖼️ Images", value="images"),
+            ),
 
-def summary_card(title: str, value) -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.text(title, size="1", color="gray"),
-            rx.text(value, size="6", weight="bold"),
-            align="center",
-        ),
-    )
+            # Summary tab
+            rx.tabs.content(
+                rx.vstack(
+                    rx.grid(
+                        rx.card(
+                            rx.vstack(
+                                rx.text("Pages", size="1", color="gray"),
+                                rx.heading(StructureState.current_summary.get("num_pages", 0), size="5"),
+                            )
+                        ),
+                        rx.card(
+                            rx.vstack(
+                                rx.text("Tables", size="1", color="gray"),
+                                rx.heading(StructureState.current_summary.get("num_tables", 0), size="5"),
+                            )
+                        ),
+                        rx.card(
+                            rx.vstack(
+                                rx.text("Images", size="1", color="gray"),
+                                rx.heading(StructureState.current_summary.get("num_pictures", 0), size="5"),
+                            )
+                        ),
+                        rx.card(
+                            rx.vstack(
+                                rx.text("Text Items", size="1", color="gray"),
+                                rx.heading(StructureState.current_summary.get("num_texts", 0), size="5"),
+                            )
+                        ),
+                        columns="4",
+                        spacing="4",
+                        width="100%",
+                    ),
+                    rx.heading("Content Types", size="3", margin_top="1em"),
+                    rx.table.root(
+                        rx.table.header(
+                            rx.table.row(
+                                rx.table.column_header_cell("Type"),
+                                rx.table.column_header_cell("Count"),
+                            ),
+                        ),
+                        rx.table.body(
+                            rx.foreach(
+                                StructureState.text_types_list,
+                                lambda item: rx.table.row(
+                                    rx.table.cell(item[0]),
+                                    rx.table.cell(str(item[1])),
+                                ),
+                            ),
+                        ),
+                        width="100%",
+                    ),
+                ),
+                value="summary",
+            ),
 
-
-def hierarchy_tab() -> rx.Component:
-    return rx.box(
-        rx.vstack(
-            rx.heading("Document Hierarchy", size="4", margin_bottom="1em"),
-
-            rx.cond(
-                StructureState.current_hierarchy,
+            # Hierarchy tab
+            rx.tabs.content(
                 rx.vstack(
                     rx.foreach(
                         StructureState.current_hierarchy,
                         lambda item: rx.hstack(
-                            rx.box(
-                                width=rx.match(
-                                    item["level"],
-                                    (1, "0em"),
-                                    (2, "2em"),
-                                    (3, "4em"),
-                                    (4, "6em"),
-                                    "8em",
-                                )
+                            rx.text(
+                                item.get("text", ""),
+                                size="2",
                             ),
-                            rx.text(item["text"], size="2", weight=rx.cond(item["level"] == 1, "bold", "regular")),
-                            rx.text(" (Page "),
-                            rx.text(item["page"]),
-                            rx.text(")"),
+                            rx.spacer(),
+                            rx.text(
+                                item.get("page_str", ""),
+                                size="1",
+                                color="gray",
+                            ),
                             width="100%",
+                            padding_y="0.25em",
                         ),
                     ),
-                    align="start",
-                    spacing="2",
-                    width="100%",
                 ),
-                rx.text("No hierarchical structure detected", size="2", color="gray"),
+                value="hierarchy",
             ),
 
-            align="start",
-            spacing="4",
-            width="100%",
-        ),
-        padding="2em",
-    )
-
-
-def tables_tab() -> rx.Component:
-    return rx.box(
-        rx.vstack(
-            rx.heading("Extracted Tables", size="4", margin_bottom="1em"),
-
-            rx.cond(
-                StructureState.current_tables,
+            # Tables tab
+            rx.tabs.content(
                 rx.vstack(
                     rx.foreach(
                         StructureState.current_tables,
-                        lambda table: rx.card(
-                            rx.vstack(
-                                rx.hstack(
-                                    rx.text("Table "),
-                                    rx.text(table["table_number"]),
-                                    rx.text(" (Page "),
-                                    rx.text(table["page"]),
-                                    rx.text(")"),
-                                ),
-                                rx.cond(
-                                    table["caption"],
-                                    rx.text(table["caption"], size="1", color="gray"),
-                                ),
-                                rx.cond(
-                                    ~table["is_empty"],
-                                    rx.table.root(
-                                        rx.table.header(
-                                            rx.table.row(
-                                                rx.foreach(
-                                                    table["columns"],
-                                                    lambda col: rx.table.column_header_cell(col),
-                                                ),
-                                            ),
-                                        ),
-                                        rx.table.body(
-                                            rx.foreach(
-                                                table["rows"],
-                                                lambda row: rx.table.row(
-                                                    rx.foreach(
-                                                        row,
-                                                        lambda cell: rx.table.cell(cell),
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
-                                        width="100%",
-                                    ),
-                                    rx.text("Table is empty", size="2", color="gray"),
-                                ),
-                                align="start",
-                                spacing="2",
-                                width="100%",
+                        lambda table: rx.vstack(
+                            rx.heading(
+                                table.get("display_title", ""),
+                                size="3",
                             ),
-                            width="100%",
+                            rx.cond(
+                                table.get("caption") != None,
+                                rx.text(table.get("caption", ""), size="1", color="gray"),
+                                rx.box(),
+                            ),
+                            rx.cond(
+                                table.get("is_empty") == False,
+                                rx.markdown(table.get("markdown", "")),
+                                rx.text("Table is empty", color="gray"),
+                            ),
+                            rx.divider(margin_y="1em"),
                         ),
                     ),
-                    align="start",
-                    spacing="4",
-                    width="100%",
                 ),
-                rx.text("No tables found in this document", size="2", color="gray"),
+                value="tables",
             ),
 
-            align="start",
-            spacing="4",
-            width="100%",
-        ),
-        padding="2em",
-    )
-
-
-def images_tab() -> rx.Component:
-    return rx.box(
-        rx.vstack(
-            rx.heading("Extracted Images", size="4", margin_bottom="1em"),
-
-            rx.cond(
-                StructureState.current_pictures,
+            # Images tab
+            rx.tabs.content(
                 rx.vstack(
                     rx.foreach(
                         StructureState.current_pictures,
-                        lambda pic: rx.card(
-                            rx.vstack(
-                                rx.hstack(
-                                    rx.text("Image "),
-                                    rx.text(pic["picture_number"]),
-                                    rx.text(" (Page "),
-                                    rx.text(pic["page"]),
-                                    rx.text(")"),
-                                ),
-                                rx.cond(
-                                    pic["caption"],
-                                    rx.text(pic["caption"], size="2", color="gray"),
-                                ),
-                                rx.cond(
-                                    pic["has_image"],
-                                    rx.text("📷 Image available", size="2", color="green"),
-                                    rx.text("⚠️ Image data not available", size="2", color="gray"),
-                                ),
-                                rx.cond(
-                                    pic["bounding_box"],
-                                    rx.vstack(
-                                        rx.text("Bounding Box:", size="1", color="gray"),
-                                        rx.text(pic["bounding_box"]["left"]),
-                                        rx.text(pic["bounding_box"]["top"]),
-                                        rx.text(pic["bounding_box"]["right"]),
-                                        rx.text(pic["bounding_box"]["bottom"]),
-                                    ),
-                                ),
-                                align="start",
-                                spacing="2",
-                                width="100%",
+                        lambda pic: rx.vstack(
+                            rx.heading(
+                                pic.get("display_title", ""),
+                                size="3",
                             ),
-                            width="100%",
+                            rx.cond(
+                                pic.get("caption") != None,
+                                rx.text(pic.get("caption", ""), size="1", color="gray"),
+                                rx.box(),
+                            ),
+                            rx.cond(
+                                pic.get("has_image"),
+                                rx.text("Image available", color="green", size="2"),
+                                rx.text("Image data not available", color="gray", size="2"),
+                            ),
+                            rx.cond(
+                                pic.get("bounding_box") != None,
+                                rx.box(
+                                    rx.text(
+                                        pic.get("bbox_text", ""),
+                                        size="1",
+                                        color="gray",
+                                    ),
+                                    margin_top="0.5em",
+                                ),
+                                rx.box(),
+                            ),
+                            rx.divider(margin_y="1em"),
                         ),
                     ),
-                    align="start",
-                    spacing="4",
-                    width="100%",
                 ),
-                rx.text("No images found in this document", size="2", color="gray"),
+                value="images",
             ),
 
-            align="start",
-            spacing="4",
+            default_value="summary",
             width="100%",
         ),
-        padding="2em",
+
+        width="100%",
     )
