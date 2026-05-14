@@ -92,8 +92,8 @@ def structure_view() -> rx.Component:
                             rx.text(
                                 item.get("text", ""),
                                 size="2",
-                                weight=rx.cond(item.get("level", 4) <= 2, "bold", "medium"),
-                                color=rx.cond(item.get("level", 4) == 1, "blue", "black"),
+                                weight=item.get("weight", "medium"),
+                                color=item.get("color", "black"),
                             ),
                             rx.spacer(),
                             rx.text(

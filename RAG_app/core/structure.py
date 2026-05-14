@@ -59,11 +59,15 @@ class DocumentStructureVisualizer:
                     prov = getattr(item, 'prov', [])
                     page_no = (prov[0].page_no + offset) if prov else None
                     level = self._infer_heading_level(label)
+                    weight = "bold" if level <= 2 else "medium"
+                    color = "blue" if level == 1 else "black"
                     hierarchy.append({
                         'type': label,
                         'text': ("  " * (level - 1)) + text,
                         'page': page_no,
                         'level': level,
+                        'weight': weight,
+                        'color': color,
                         'page_str': f"Page {page_no}" if page_no is not None else "Unknown Page"
                     })
         return sorted(hierarchy, key=lambda x: (x['page'] if x['page'] is not None else -1))
