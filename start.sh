@@ -35,16 +35,7 @@ else
     fi
 fi
 
-# ─── 3. Codespaces Port Configuration ───
-if [ "$IS_CODESPACE" = "1" ]; then
-    echo ""
-    echo "🌐 Configuring Codespaces ports..."
-    gh codespace ports visibility 8002:public -c "$CODESPACE_NAME" || true
-    gh codespace ports visibility 3001:public -c "$CODESPACE_NAME" || true
-    echo "✅ Ports configured"
-fi
-
-# ─── 4. Ensure .env exists ───
+# ─── 3. Ensure .env exists ───
 if [ ! -f ".env" ]; then
     echo ""
     echo "⚠️  .env file not found!"
@@ -52,7 +43,7 @@ if [ ! -f ".env" ]; then
     echo "   Starting anyway..."
 fi
 
-# ─── 5. Ensure frontend is built with polling transport ───
+# ─── 4. Ensure frontend is built ───
 echo ""
 echo "📁 Checking frontend build..."
 if [ ! -d ".web" ] || [ ! -f ".web/env.json" ]; then
@@ -60,30 +51,23 @@ if [ ! -d ".web" ] || [ ! -f ".web/env.json" ]; then
     uv run reflex init
 fi
 
-# Force polling transport in env.json (Codespaces WebSocket proxy issues)
-BACKEND_URL="http://localhost:8002"
-if [ "$IS_CODESPACE" = "1" ]; then
-    BACKEND_URL="https://${CODESPACE_NAME}-8002.app.github.dev"
-fi
-
-echo "   Configuring frontend for HTTP polling..."
-cat > .web/env.json << EOF
-{
-  "PING": "${BACKEND_URL}/ping",
-  "EVENT": "${BACKEND_URL}/_event",
-  "UPLOAD": "${BACKEND_URL}/_upload",
-  "AUTH_CODESPACE": "${BACKEND_URL}/auth-codespace",
-  "HEALTH": "${BACKEND_URL}/_health",
-  "ALL_ROUTES": "${BACKEND_URL}/_all_routes",
-  "TRANSPORT": "polling",
-  "TEST_MODE": false
-}
-EOF
-echo "   ✅ Frontend configured for polling transport"
+# ─── 5. Ensure logs directory exists ───
+mkdir -p logs
 
 # ─── 6. Start Celery Worker (background) ───
 echo ""
 echo "🧑‍🌾 Starting Celery worker..."
+
+# Kill any existing worker
+if [ -f "logs/celery.pid" ]; then
+    OLD_PID=$(cat logs/celery.pid)
+    if ps -p "$OLD_PID" > /dev/null 2>&1; then
+        echo "   Stopping existing worker (PID: $OLD_PID)..."
+        kill "$OLD_PID" || true
+        sleep 1
+    fi
+fi
+
 uv run celery -A RAG_app.core.celery_app worker \
     --loglevel=info \
     --pool=prefork \
@@ -95,7 +79,8 @@ uv run celery -A RAG_app.core.celery_app worker \
     --logfile=logs/celery.log \
     --pidfile=logs/celery.pid
 
-if [ -f "logs/celery.pid" ]; then
+sleep 1
+if [ -f "logs/celery.pid" ] && ps -p "$(cat logs/celery.pid)" > /dev/null 2>&1; then
     echo "✅ Celery worker started (PID: $(cat logs/celery.pid))"
 else
     echo "⚠️  Celery worker may not have started. Check logs/celery.log"

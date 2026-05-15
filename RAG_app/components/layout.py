@@ -180,7 +180,7 @@ def sidebar() -> rx.Component:
             min_height="0",
         ),
         rx.vstack(
-            rx.icon("upload-cloud", size=32, color=rx.color("slate", 8)),
+                rx.icon("cloud-upload", size=32, color=rx.color("slate", 8)),
             rx.text("No documents yet", size="2", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
             rx.text("Drop files above to get started", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
             align="center",

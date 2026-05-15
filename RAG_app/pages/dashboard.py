@@ -11,7 +11,10 @@ from ..state.structure_state import StructureState
 
 def index() -> rx.Component:
     """Main dashboard view"""
-    return layout(
+    return rx.fragment(
+        rx.title("RAG AI Assistant"),
+        rx.meta(name="description", content="Intelligent document analysis with RAG"),
+        layout(
         rx.vstack(
             # ─── Tabs ───
             rx.tabs.root(
@@ -71,5 +74,6 @@ def index() -> rx.Component:
             height="100%",
             spacing="0",
             min_height="0",
+        ),
         ),
     )

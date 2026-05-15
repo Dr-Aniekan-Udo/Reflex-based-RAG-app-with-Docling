@@ -10,15 +10,18 @@
   "portsAttributes": {
     "3001": {
       "label": "Reflex Frontend",
-      "onAutoForward": "openPreview"
+      "onAutoForward": "openPreview",
+      "visibility": "public"
     },
     "8002": {
       "label": "Reflex Backend",
-      "onAutoForward": "openPreview"
+      "onAutoForward": "openPreview",
+      "visibility": "public"
     },
     "6379": {
       "label": "Redis",
-      "onAutoForward": "notify"
+      "onAutoForward": "notify",
+      "visibility": "private"
     }
   },
   "customizations": {

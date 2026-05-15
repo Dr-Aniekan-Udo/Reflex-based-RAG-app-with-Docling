@@ -19,7 +19,5 @@ app = rx.App()
 app.add_page(
     dashboard.index,
     route="/",
-    title="Enterprise RAG Dashboard",
-    description="A modular Reflex application for intelligent document analysis.",
     on_load=BaseState.on_load,
 )

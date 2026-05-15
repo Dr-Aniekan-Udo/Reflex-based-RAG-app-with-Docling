@@ -181,8 +181,13 @@ class UploadState(BaseState):
                                 doc["message"] = "Failed"
                         elif result.state in ("FAILURE", "REVOKED"):
                             doc["status"] = "error"
-                            info = result.info
-                            doc["error_message"] = str(info) if info else "Task failed"
+                            try:
+                                if result.result:
+                                    doc["error_message"] = str(result.result)
+                                else:
+                                    doc["error_message"] = "Task failed"
+                            except Exception:
+                                doc["error_message"] = "Task failed"
                             doc["message"] = "Failed"
                     except Exception as e:
                         logger.error("poll_error", doc_id=doc["doc_id"], error=str(e))
