@@ -9,11 +9,11 @@ from ..state.upload_state import UploadState
 
 def document_card(doc) -> rx.Component:
     """Render a single document card with status-aware actions."""
-    is_uploaded = doc.status == "uploaded"
-    is_processing = doc.status == "processing"
-    is_completed = doc.status == "completed"
-    is_error = doc.status == "error"
-    is_stopped = doc.status == "stopped"
+    is_uploaded = doc["status"] == "uploaded"
+    is_processing = doc["status"] == "processing"
+    is_completed = doc["status"] == "completed"
+    is_error = doc["status"] == "error"
+    is_stopped = doc["status"] == "stopped"
 
     status_color = rx.cond(
         is_processing, "orange",
@@ -26,7 +26,7 @@ def document_card(doc) -> rx.Component:
         is_uploaded,
         rx.button(
             rx.hstack(rx.icon("play", size=12), rx.text("Process", size="1"), spacing="1"),
-            on_click=lambda: UploadState.process_document(doc.doc_id),
+                    on_click=lambda: UploadState.process_document(doc["doc_id"]),
             color_scheme="orange",
             size="1",
             flex="1",
@@ -35,7 +35,7 @@ def document_card(doc) -> rx.Component:
             is_processing,
             rx.button(
                 rx.hstack(rx.icon("square", size=12), rx.text("Stop", size="1"), spacing="1"),
-                on_click=lambda: UploadState.stop_processing(doc.doc_id),
+                on_click=lambda: UploadState.stop_processing(doc["doc_id"]),
                 color_scheme="amber",
                 size="1",
                 flex="1",
@@ -44,14 +44,14 @@ def document_card(doc) -> rx.Component:
                 is_error | is_stopped,
                 rx.button(
                     rx.hstack(rx.icon("rotate-ccw", size=12), rx.text("Retry", size="1"), spacing="1"),
-                    on_click=lambda: UploadState.retry_document(doc.doc_id),
+                    on_click=lambda: UploadState.retry_document(doc["doc_id"]),
                     color_scheme="blue",
                     size="1",
                     flex="1",
                 ),
                 rx.button(
                     rx.hstack(rx.icon("refresh-cw", size=12), rx.text("Reprocess", size="1"), spacing="1"),
-                    on_click=lambda: UploadState.process_document(doc.doc_id),
+            on_click=lambda: UploadState.process_document(doc["doc_id"]),
                     color_scheme="orange",
                     size="1",
                     flex="1",
@@ -64,8 +64,8 @@ def document_card(doc) -> rx.Component:
         rx.vstack(
             rx.hstack(
                 rx.icon("file-text", size=14, color=status_color),
-                rx.text(doc.filename, size="1", weight="medium", truncate=True, flex="1"),
-                rx.text(f"{doc.size_mb} MB", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
+                rx.text(doc["filename"], size="1", weight="medium", truncate=True, flex="1"),
+                rx.text(f"{doc['size_mb']} MB", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                 spacing="2",
                 align="center",
                 width="100%",
@@ -74,29 +74,29 @@ def document_card(doc) -> rx.Component:
                 is_processing,
                 rx.vstack(
                     rx.progress(
-                        value=doc.progress,
+                        value=doc["progress"],
                         width="100%",
                         color_scheme="orange",
                         height="4px",
                     ),
-                    rx.text(doc.message, size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
+                    rx.text(doc["message"], size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
                     spacing="1",
                     width="100%",
                 ),
             ),
             rx.cond(
                 is_error,
-                rx.text(doc.error_message, size="1", color="red", truncate=True),
+                rx.text(doc["error_message"], size="1", color="red", truncate=True),
             ),
             rx.cond(
                 is_completed,
-                rx.text(f"{doc.pages} pages • {doc.chunks} chunks", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
+                rx.text(f"{doc['pages']} pages • {doc['chunks']} chunks", size="1", color=rx.color_mode_cond(light=rx.color("slate", 11), dark=rx.color("slate", 11))),
             ),
             rx.hstack(
                 primary_btn,
                 rx.icon_button(
                     rx.icon("trash-2", size=12),
-                    on_click=lambda: UploadState.clear_document(doc.doc_id),
+                    on_click=lambda: UploadState.clear_document(doc["doc_id"]),
                     variant="soft",
                     color_scheme="red",
                     size="1",
