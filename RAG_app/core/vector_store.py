@@ -89,6 +89,54 @@ class VectorStoreManager:
         print(f"✅ Vector store created successfully with {len(embeddings)} chunks")
         return vectorstore
 
+    def add_documents(self, vectorstore: Chroma, chunks: List[Document]) -> None:
+        """Incrementally add new chunks to an existing vector store."""
+        if not chunks:
+            return
+
+        texts = [c.page_content for c in chunks]
+        metadatas = [c.metadata for c in chunks]
+
+        # Get max existing ID to avoid collisions
+        try:
+            existing = vectorstore._collection.get(limit=1)
+            start_id = len(existing.get("ids", []))
+        except Exception:
+            start_id = 0
+
+        ids = [str(start_id + i) for i in range(len(chunks))]
+
+        # Embed with fallback
+        try:
+            embeddings = self.embeddings.embed_documents(texts)
+            if len(embeddings) != len(texts):
+                raise ValueError("Embedding count mismatch")
+        except Exception:
+            embeddings = []
+            valid_texts = []
+            valid_metadatas = []
+            valid_ids = []
+            for idx, text in enumerate(texts):
+                try:
+                    emb = self.embeddings.embed_query(text)
+                    embeddings.append(emb)
+                    valid_texts.append(text)
+                    valid_metadatas.append(metadatas[idx])
+                    valid_ids.append(ids[idx])
+                except Exception:
+                    continue
+            texts = valid_texts
+            metadatas = valid_metadatas
+            ids = valid_ids
+
+        vectorstore._collection.upsert(
+            embeddings=embeddings,
+            documents=texts,
+            metadatas=metadatas,
+            ids=ids
+        )
+        print(f"✅ Added {len(embeddings)} chunks to existing vector store")
+
     def search_similar(self, vectorstore: Chroma, query: str, k: int = 8) -> List[Document]:
         try:
             results = vectorstore.similarity_search(query, k=k)

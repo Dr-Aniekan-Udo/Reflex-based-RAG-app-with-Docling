@@ -20,4 +20,8 @@ class BaseState(rx.State):
         else:
             logger.info("session_already_exists", session_id=self.session_id)
 
+        # Start polling for Celery task updates
+        from .upload_state import UploadState
+        return UploadState.poll_document_tasks
+
 

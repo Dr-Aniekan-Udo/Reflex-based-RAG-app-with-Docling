@@ -1,33 +1,43 @@
-import asyncio
 import reflex as rx
+import asyncio
 from typing import List, Dict, Tuple, Any
+from uuid import uuid4
 
 from langchain_core.documents import Document
 
 from ..core.session_registry import get_registry
-from ..core.document_processor import DocumentProcessor
 from ..core.vector_store import VectorStoreManager
 from ..core.tools import create_search_tool
 from ..core.agent import create_documentation_agent
 from ..core.logging_config import logger
-from ..core.executor import get_executor
-from ..core.worker import process_documents
+from ..core.celery_app import celery_app
+from ..core.celery_tasks import process_document_task
 from .base_state import BaseState
 from .structure_state import StructureState
 
 
-# Module-level buffer for uploaded bytes.
-_upload_buffers: Dict[str, List[Tuple[str, bytes]]] = {}
+# Module-level buffer: doc_id -> bytes
+_upload_buffers: Dict[str, bytes] = {}
+
+
+class DocumentItem(rx.Base):
+    """Represents a single document in the sidebar."""
+    doc_id: str = ""
+    filename: str = ""
+    size_mb: float = 0.0
+    status: str = "uploaded"  # uploaded | processing | completed | error | stopped
+    progress: int = 0
+    message: str = "Ready"
+    pages: int = 0
+    chunks: int = 0
+    task_id: str = ""
+    error_message: str = ""
 
 
 class UploadState(BaseState):
-    """State management for file ingestion and vectorization."""
+    """State management for per-document ingestion and vectorization."""
 
-    is_processing: bool = False
-    process_progress: int = 0
-    current_task_message: str = "Ready to upload documents"
-    uploaded_files: List[Dict[str, Any]] = []
-    processed_files: List[str] = []
+    documents: List[DocumentItem] = []
     document_stats: Dict[str, Any] = {
         "total_files": 0,
         "total_size_mb": 0.0,
@@ -35,176 +45,255 @@ class UploadState(BaseState):
         "vector_count": 0,
     }
 
+    @rx.var
+    def is_processing_any(self) -> bool:
+        return any(d.status == "processing" for d in self.documents)
+
+    @rx.var
+    def has_documents(self) -> bool:
+        return len(self.documents) > 0
+
+    @rx.var
+    def has_completed_documents(self) -> bool:
+        return any(d.status == "completed" for d in self.documents)
+
     @rx.event
     async def handle_upload(self, files: List[rx.UploadFile]):
-        """
-        Normal event handler that reads uploaded files into memory buffer.
-        Called automatically when files are dropped/selected.
-        """
+        """Read uploaded files and add them to the document list."""
         logger.info("handle_upload_called", file_count=len(files) if files else 0, session_id=self.session_id)
 
         if not files:
-            self.current_task_message = "No files selected. Please drop files first."
-            logger.warning("handle_upload_no_files", session_id=self.session_id)
             return
-
-        self.current_task_message = "Reading files into memory..."
-        file_data: List[Tuple[str, bytes]] = []
-        uploaded_info: List[Dict[str, Any]] = []
-        total_size_mb = 0.0
 
         for file in files:
             try:
-                upload_data = await file.read()
-                file_data.append((file.filename, upload_data))
-                file_size_mb = len(upload_data) / (1024 * 1024)
-                uploaded_info.append({
-                    "name": file.filename,
-                    "size_mb": round(file_size_mb, 2)
-                })
-                total_size_mb += file_size_mb
-                logger.info("file_read", filename=file.filename, size_mb=round(file_size_mb, 2), session_id=self.session_id)
+                # Show filename immediately before reading
+                doc = DocumentItem(
+                    doc_id=str(uuid4()),
+                    filename=file.filename,
+                    status="reading",
+                    message="Reading file...",
+                )
+                self.documents.append(doc)
+
+                # Read bytes
+                data = await file.read()
+                size_mb = len(data) / (1024 * 1024)
+
+                # Update doc info
+                doc.size_mb = round(size_mb, 2)
+                doc.status = "uploaded"
+                doc.message = "Ready to process"
+
+                # Store bytes keyed by doc_id
+                global _upload_buffers
+                _upload_buffers[doc.doc_id] = data
+
+                logger.info("file_added", doc_id=doc.doc_id, filename=doc.filename, size_mb=round(size_mb, 2))
             except Exception as e:
-                logger.error("file_read_error", filename=file.filename, error=str(e), session_id=self.session_id)
+                logger.error("file_read_error", filename=file.filename, error=str(e))
                 continue
 
-        global _upload_buffers
-        _upload_buffers[self.session_id] = file_data
+        self._update_stats()
 
-        self.uploaded_files = uploaded_info
-        self.document_stats["total_files"] = len(uploaded_info)
-        self.document_stats["total_size_mb"] = round(total_size_mb, 2)
-        self.current_task_message = f"✓ {len(uploaded_info)} file(s) ready. Click 'Process' to analyze."
-        logger.info("upload_complete", file_count=len(file_data), total_mb=round(total_size_mb, 2), session_id=self.session_id)
-
-    @rx.event(background=True)
-    async def start_processing(self):
-        """
-        Background task that orchestrates document processing.
-        CPU-bound Docling work is offloaded to ProcessPoolExecutor.
-        I/O-bound embedding runs in ThreadPoolExecutor.
-        """
-        global _upload_buffers
-        registry = get_registry()
-
-        logger.info("start_processing_called", session_id=self.session_id)
-
-        async with self:
-            if not _upload_buffers.get(self.session_id):
-                self.current_task_message = "No files to process. Please upload documents first."
-                logger.warning("processing_no_files", session_id=self.session_id)
-                return
-            self.is_processing = True
-            self.process_progress = 10
-            self.current_task_message = "Processing documents with Docling (CPU worker)..."
-
-        try:
-            file_data = _upload_buffers.pop(self.session_id, [])
-            logger.info("processing_file_data_retrieved", file_count=len(file_data), session_id=self.session_id)
-
-            # ─── Offload CPU-bound Docling to worker process ───
-            result = None
-            try:
-                executor = get_executor()
-                future = executor.submit(process_documents, file_data)
-                result = await asyncio.wrap_future(future)
-                logger.info("worker_complete", success=result.get("success"), session_id=self.session_id)
-            except Exception as pool_err:
-                logger.error("process_pool_failed", error=str(pool_err), fallback="sync", session_id=self.session_id)
-                # Fallback: run synchronously (blocks event loop but ensures functionality)
-                result = process_documents(file_data)
-
-            if not result.get("success"):
-                error_msg = result.get("error", "Unknown processing error")
-                logger.error("processing_failed", error=error_msg, session_id=self.session_id)
-                async with self:
-                    self.is_processing = False
-                    self.current_task_message = f"Error: {error_msg}"
-                return
-
-            chunks_data = result["chunks"]
-            doc_structures = result["doc_structures"]
-            available_documents = result["available_documents"]
-            stats = result["stats"]
-
-            async with self:
-                self.process_progress = 50
-                self.current_task_message = f"Processed {stats['total_pages']} pages. Creating embeddings..."
-
-            if not chunks_data:
-                async with self:
-                    self.is_processing = False
-                    self.current_task_message = "No documents were successfully processed."
-                logger.warning("processing_no_chunks", session_id=self.session_id)
-                return
-
-            # ─── Reconstruct Document objects ───
-            chunk_docs = [
-                Document(page_content=c["page_content"], metadata=c["metadata"])
-                for c in chunks_data
-            ]
-
-            # ─── Create vector store (embedding + Chroma) in thread pool ───
-            vs_manager = VectorStoreManager()
-            try:
-                vectorstore = await asyncio.to_thread(
-                    vs_manager.create_vectorstore, chunk_docs
-                )
-                logger.info("vectorstore_created", chunk_count=len(chunk_docs), session_id=self.session_id)
-            except Exception as vs_err:
-                logger.error("vectorstore_creation_failed", error=str(vs_err), session_id=self.session_id)
-                async with self:
-                    self.is_processing = False
-                    self.current_task_message = f"Vector store error: {str(vs_err)}"
-                return
-
-            # Store in registry
-            registry.set(self.session_id, "vectorstore", vectorstore)
-            registry.set(self.session_id, "doc_structures", doc_structures)
-
-            async with self:
-                self.document_stats["total_pages"] = stats["total_pages"]
-                self.process_progress = 80
-                self.current_task_message = "Initializing AI agent..."
-
-            # ─── Create agent ───
-            search_tool = create_search_tool(vectorstore)
-            agent = create_documentation_agent([search_tool])
-            registry.set(self.session_id, "agent", agent)
-            logger.info("agent_created", session_id=self.session_id)
-
-            async with self:
-                self.processed_files = [f["name"] for f in self.uploaded_files]
-                self.is_processing = False
-                self.process_progress = 100
-                self.current_task_message = "✅ Documents processed successfully! Ready to chat."
-                self.document_stats["vector_count"] = stats["total_chunks"]
-                logger.info("processing_complete", session_id=self.session_id, total_chunks=len(chunk_docs))
-
-        except Exception as e:
-            logger.error("processing_error", error=str(e), session_id=self.session_id, exc_info=True)
-            async with self:
-                self.is_processing = False
-                self.current_task_message = f"Error: {str(e)}"
+    def _update_stats(self):
+        """Recalculate aggregate stats from all documents."""
+        self.document_stats = {
+            "total_files": len(self.documents),
+            "total_size_mb": round(sum(d.size_mb for d in self.documents), 2),
+            "total_pages": sum(d.pages for d in self.documents),
+            "vector_count": sum(d.chunks for d in self.documents),
+        }
 
     @rx.event
-    def clear_documents(self):
-        logger.info("clear_documents", session_id=self.session_id)
+    def process_document(self, doc_id: str):
+        """Start processing a single document via Celery."""
+        global _upload_buffers
+        data = _upload_buffers.get(doc_id)
+        if not data:
+            logger.warning("process_no_data", doc_id=doc_id)
+            return
+
+        doc = self._get_doc(doc_id)
+        if not doc or doc.status == "processing":
+            return
+
+        doc.status = "processing"
+        doc.progress = 5
+        doc.message = "Queued for processing..."
+        doc.error_message = ""
+
+        try:
+            result = process_document_task.delay(data, doc.filename, doc_id)
+            doc.task_id = result.id
+            logger.info("process_queued", doc_id=doc_id, task_id=result.id, filename=doc.filename)
+        except Exception as e:
+            doc.status = "error"
+            doc.error_message = str(e)
+            logger.error("process_enqueue_failed", doc_id=doc_id, error=str(e))
+
+    @rx.event(background=True)
+    async def poll_document_tasks(self):
+        """Background task that polls Celery task status and updates state."""
+        while True:
+            await asyncio.sleep(2)
+
+            async with self:
+                processing_docs = [d for d in self.documents if d.status == "processing" and d.task_id]
+                if not processing_docs:
+                    continue
+
+                registry = get_registry()
+                vectorstore = registry.get(self.session_id).get("vectorstore")
+                doc_structures = registry.get(self.session_id).get("doc_structures", {})
+                all_chunks_data = []
+                all_available_docs = set()
+
+                for doc in processing_docs:
+                    try:
+                        result = celery_app.AsyncResult(doc.task_id)
+                        if result.state == "PENDING":
+                            doc.message = "Waiting for worker..."
+                        elif result.state == "STARTED":
+                            meta = result.info or {}
+                            doc.progress = meta.get("progress", 10)
+                            doc.message = meta.get("message", "Processing...")
+                        elif result.state == "SUCCESS":
+                            data = result.result or {}
+                            if data.get("success"):
+                                doc.status = "completed"
+                                doc.progress = 100
+                                doc.message = f"Done — {data['stats']['chunks']} chunks"
+                                doc.pages = data["stats"]["pages"]
+                                doc.chunks = data["stats"]["chunks"]
+
+                                # Collect chunks for batch vectorstore creation
+                                all_chunks_data.extend(data.get("chunks", []))
+                                doc_structures.update(data.get("doc_structures", {}))
+                                all_available_docs.update(data.get("available_documents", []))
+                            else:
+                                doc.status = "error"
+                                doc.error_message = data.get("error", "Unknown error")
+                                doc.message = "Failed"
+                        elif result.state in ("FAILURE", "REVOKED"):
+                            doc.status = "error"
+                            info = result.info
+                            doc.error_message = str(info) if info else "Task failed"
+                            doc.message = "Failed"
+                    except Exception as e:
+                        logger.error("poll_error", doc_id=doc.doc_id, error=str(e))
+
+                # Update vector store with all completed chunks
+                if all_chunks_data:
+                    chunk_docs = [
+                        Document(page_content=c["page_content"], metadata=c["metadata"])
+                        for c in all_chunks_data
+                    ]
+                    vs_manager = VectorStoreManager()
+                    if vectorstore is None:
+                        vectorstore = vs_manager.create_vectorstore(chunk_docs)
+                    else:
+                        vs_manager.add_documents(vectorstore, chunk_docs)
+
+                    registry.set(self.session_id, "vectorstore", vectorstore)
+                    registry.set(self.session_id, "doc_structures", doc_structures)
+
+                    # Recreate agent
+                    search_tool = create_search_tool(vectorstore)
+                    agent = create_documentation_agent([search_tool])
+                    registry.set(self.session_id, "agent", agent)
+
+                self._update_stats()
+
+    @rx.event
+    def stop_processing(self, doc_id: str):
+        """Revoke a running Celery task for a document."""
+        doc = self._get_doc(doc_id)
+        if not doc or not doc.task_id:
+            return
+
+        try:
+            celery_app.control.revoke(doc.task_id, terminate=True)
+            doc.status = "stopped"
+            doc.message = "Stopped by user"
+            doc.progress = 0
+            logger.info("process_stopped", doc_id=doc_id, task_id=doc.task_id)
+        except Exception as e:
+            logger.error("stop_failed", doc_id=doc_id, error=str(e))
+
+    @rx.event
+    def retry_document(self, doc_id: str):
+        """Retry a failed or stopped document."""
+        doc = self._get_doc(doc_id)
+        if not doc:
+            return
+        doc.status = "uploaded"
+        doc.error_message = ""
+        doc.progress = 0
+        doc.message = "Ready"
+        doc.task_id = ""
+        self.process_document(doc_id)
+
+    @rx.event
+    def clear_document(self, doc_id: str):
+        """Remove a single document and its data."""
+        logger.info("clear_document", doc_id=doc_id, session_id=self.session_id)
+
+        global _upload_buffers
+        if doc_id in _upload_buffers:
+            del _upload_buffers[doc_id]
+
+        # Remove from vector store
+        registry = get_registry()
+        entry = registry.get(self.session_id)
+        vectorstore = entry.get("vectorstore")
+        if vectorstore:
+            try:
+                vectorstore._collection.delete(where={"doc_id": doc_id})
+                logger.info("chunks_deleted", doc_id=doc_id)
+            except Exception as e:
+                logger.warning("chunk_delete_failed", doc_id=doc_id, error=str(e))
+
+        # Remove from state
+        self.documents = [d for d in self.documents if d.doc_id != doc_id]
+        self._update_stats()
+
+        # If no documents left, clear everything
+        if not self.documents:
+            registry.clear(self.session_id)
+            return StructureState.clear_structure()
+
+    @rx.event
+    def process_all_documents(self):
+        """Queue all uploaded documents for processing."""
+        for doc in self.documents:
+            if doc.status == "uploaded":
+                self.process_document(doc.doc_id)
+
+    @rx.event
+    def clear_all_documents(self):
+        """Remove all documents and clear all data."""
+        logger.info("clear_all_documents", session_id=self.session_id)
+
+        global _upload_buffers
+        for doc in self.documents:
+            if doc.doc_id in _upload_buffers:
+                del _upload_buffers[doc.doc_id]
+
         registry = get_registry()
         registry.clear(self.session_id)
-        global _upload_buffers
-        if self.session_id in _upload_buffers:
-            del _upload_buffers[self.session_id]
 
-        self.uploaded_files = []
-        self.processed_files = []
+        self.documents = []
         self.document_stats = {
             "total_files": 0,
             "total_size_mb": 0.0,
             "total_pages": 0,
             "vector_count": 0,
         }
-        self.process_progress = 0
-        self.current_task_message = "Ready to upload documents"
-        self.is_processing = False
         return StructureState.clear_structure()
+
+    def _get_doc(self, doc_id: str) -> DocumentItem | None:
+        for d in self.documents:
+            if d.doc_id == doc_id:
+                return d
+        return None

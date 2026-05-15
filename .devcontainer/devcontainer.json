@@ -4,9 +4,9 @@
   "features": {
     "ghcr.io/va-h/devcontainers-features/uv:1": {}
   },
-  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev libgomp1",
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev libgomp1 redis-server",
   "postCreateCommand": "bash .devcontainer/post-create.sh",
-  "forwardPorts": [3001, 8002],
+  "forwardPorts": [3001, 8002, 6379],
   "portsAttributes": {
     "3001": {
       "label": "Reflex Frontend",
@@ -15,6 +15,10 @@
     "8002": {
       "label": "Reflex Backend",
       "onAutoForward": "openPreview"
+    },
+    "6379": {
+      "label": "Redis",
+      "onAutoForward": "notify"
     }
   },
   "customizations": {
