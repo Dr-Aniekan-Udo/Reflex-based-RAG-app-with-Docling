@@ -1,11 +1,11 @@
 #!/bin/bash
-# Unified launcher: Redis + Reflex + Celery Worker
+# Unified launcher: Redis + Reflex
 # Usage: bash start.sh
 
 set -e
 
 echo "╔════════════════════════════════════════════════════════════╗"
-echo "║         RAG App - Unified Launcher                         ║"
+echo "║         RAG App - Launcher                                 ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -43,7 +43,12 @@ if [ ! -f ".env" ]; then
     echo "   Starting anyway..."
 fi
 
-# ─── 4. Ensure frontend is built ───
+# ─── 4. Apply Reflex Polling Patch ───
+echo ""
+echo "🔧 Applying Reflex polling transport patch..."
+uv run python patch_reflex_event.py
+
+# ─── 5. Ensure frontend is built ───
 echo ""
 echo "📁 Checking frontend build..."
 if [ ! -d ".web" ] || [ ! -f ".web/env.json" ]; then
@@ -51,42 +56,18 @@ if [ ! -d ".web" ] || [ ! -f ".web/env.json" ]; then
     uv run reflex init
 fi
 
-# ─── 5. Ensure logs directory exists ───
-mkdir -p logs
-
-# ─── 6. Start Celery Worker (background) ───
-echo ""
-echo "🧑‍🌾 Starting Celery worker..."
-
-# Kill any existing worker
-if [ -f "logs/celery.pid" ]; then
-    OLD_PID=$(cat logs/celery.pid)
-    if ps -p "$OLD_PID" > /dev/null 2>&1; then
-        echo "   Stopping existing worker (PID: $OLD_PID)..."
-        kill "$OLD_PID" || true
-        sleep 1
+# Verify the patch worked
+if [ -f ".web/env.json" ]; then
+    EVENT_URL=$(cat .web/env.json | grep -o '"EVENT": "[^"]*"' | head -1)
+    echo "   EVENT endpoint: $EVENT_URL"
+    if echo "$EVENT_URL" | grep -q "wss://"; then
+        echo "   ⚠️  WARNING: EVENT URL still uses wss://. The patch may not have applied correctly."
+    else
+        echo "   ✅ EVENT URL uses https:// (polling mode)"
     fi
 fi
 
-uv run celery -A RAG_app.core.celery_app worker \
-    --loglevel=info \
-    --pool=prefork \
-    --max-tasks-per-child=1 \
-    --hostname=rag-worker@%h \
-    --queues=celery \
-    --events \
-    --detach \
-    --logfile=logs/celery.log \
-    --pidfile=logs/celery.pid
-
-sleep 1
-if [ -f "logs/celery.pid" ] && ps -p "$(cat logs/celery.pid)" > /dev/null 2>&1; then
-    echo "✅ Celery worker started (PID: $(cat logs/celery.pid))"
-else
-    echo "⚠️  Celery worker may not have started. Check logs/celery.log"
-fi
-
-# ─── 7. Start Reflex App (foreground) ───
+# ─── 6. Start Reflex App (foreground) ───
 echo ""
 echo "════════════════════════════════════════════════════════════"
 echo "🚀 Starting Reflex Application..."
@@ -102,7 +83,7 @@ if [ "$IS_CODESPACE" = "1" ]; then
 fi
 echo "════════════════════════════════════════════════════════════"
 echo ""
-echo "Press Ctrl+C to stop the app (Celery worker runs separately)"
+echo "Press Ctrl+C to stop the app"
 echo ""
 
 uv run reflex run "$@"
