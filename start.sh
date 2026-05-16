@@ -1,5 +1,5 @@
 #!/bin/bash
-# Unified launcher: Redis + Reflex
+# Unified launcher: Redis + Celery (foreground logs) + Reflex
 # Usage: bash start.sh
 
 set -e
@@ -67,7 +67,49 @@ if [ -f ".web/env.json" ]; then
     fi
 fi
 
-# ─── 6. Start Reflex App (foreground) ───
+# ─── 6. Start Celery Worker (background, but logs visible) ───
+echo ""
+echo "Starting Celery worker..."
+mkdir -p logs
+
+# Kill any existing worker
+if [ -f "logs/celery.pid" ]; then
+    OLD_PID=$(cat logs/celery.pid)
+    if ps -p "$OLD_PID" > /dev/null 2>&1; then
+        echo "Stopping existing worker (PID: $OLD_PID)..."
+        kill "$OLD_PID" || true
+        sleep 1
+    fi
+fi
+
+# Start Celery worker in background, redirect output to log file
+uv run celery -A RAG_app.core.celery_app worker \
+    --loglevel=info \
+    --pool=prefork \
+    --max-tasks-per-child=1 \
+    --hostname=rag-worker@%h \
+    --queues=celery \
+    --events \
+    --logfile=logs/celery.log \
+    --pidfile=logs/celery.pid &
+
+CELERY_PID=$!
+sleep 2
+
+if ps -p "$CELERY_PID" > /dev/null 2>&1; then
+    echo "Celery worker started (PID: $CELERY_PID)"
+else
+    echo "ERROR: Celery worker failed to start. Check logs/celery.log"
+    exit 1
+fi
+
+# Start tailing Celery logs in background so user sees real-time output
+echo ""
+echo "--- Celery Worker Logs (tail -f logs/celery.log) ---"
+tail -f logs/celery.log &
+TAIL_PID=$!
+
+# ─── 7. Start Reflex App (foreground) ───
 echo ""
 echo "=================================="
 echo "Starting Reflex Application..."
@@ -75,6 +117,7 @@ echo ""
 echo "Frontend:  http://localhost:3001"
 echo "Backend:   http://localhost:8002"
 echo "Redis:     redis://localhost:6379"
+echo "Celery:    logs/celery.log (live output below)"
 echo ""
 if [ "$IS_CODESPACE" = "1" ]; then
     echo "Codespaces URLs:"
@@ -83,7 +126,39 @@ if [ "$IS_CODESPACE" = "1" ]; then
 fi
 echo "=================================="
 echo ""
-echo "Press Ctrl+C to stop the app"
+echo "Press Ctrl+C to stop the app (Celery will also stop)"
 echo ""
 
+# Function to cleanup on exit
+cleanup() {
+    echo ""
+    echo "Shutting down..."
+    
+    # Stop the tail process
+    if ps -p "$TAIL_PID" > /dev/null 2>&1; then
+        kill "$TAIL_PID" 2>/dev/null || true
+    fi
+    
+    # Stop Celery worker
+    if [ -f "logs/celery.pid" ]; then
+        WORKER_PID=$(cat logs/celery.pid)
+        if ps -p "$WORKER_PID" > /dev/null 2>&1; then
+            echo "Stopping Celery worker (PID: $WORKER_PID)..."
+            kill "$WORKER_PID" 2>/dev/null || true
+        fi
+    fi
+    
+    # Also kill by PID if file missing
+    if ps -p "$CELERY_PID" > /dev/null 2>&1; then
+        kill "$CELERY_PID" 2>/dev/null || true
+    fi
+    
+    echo "Shutdown complete."
+    exit 0
+}
+
+# Set trap to cleanup on Ctrl+C or script exit
+trap cleanup INT TERM EXIT
+
+# Start Reflex (this blocks)
 uv run reflex run "$@"
