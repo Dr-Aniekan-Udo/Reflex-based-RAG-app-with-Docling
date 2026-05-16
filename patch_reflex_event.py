@@ -15,6 +15,11 @@ def find_reflex_event_module() -> Path | None:
     """Find the installed reflex_base/constants/event.py file."""
     search_paths = []
     
+    # Check current directory venv first
+    cwd = Path.cwd()
+    search_paths.append(str(cwd / ".venv" / "lib"))
+    search_paths.append(str(cwd / ".venv" / "Lib"))
+    
     # Check site-packages directories
     try:
         search_paths.extend(site.getsitepackages())
@@ -34,6 +39,11 @@ def find_reflex_event_module() -> Path | None:
         path = Path(sp) / "reflex_base" / "constants" / "event.py"
         if path.exists():
             return path
+        # Also check under site-packages
+        for site_pkg in Path(sp).rglob("site-packages"):
+            path = site_pkg / "reflex_base" / "constants" / "event.py"
+            if path.exists():
+                return path
     
     return None
 
@@ -51,21 +61,12 @@ def apply_patch():
     
     # Check if already patched
     if 'config.transport != "polling"' in content:
-        print("✅ Reflex event patch already applied.")
+        print("[OK] Reflex event patch already applied.")
         return
     
     # The exact code to patch (from Reflex 0.8.x)
-    old_code = """        # The event endpoint is a websocket.
-        if self == Endpoint.EVENT:
-            # Replace the protocol with ws.
-            url = url.replace("https://", "wss://").replace("http://", "ws://")"""
-    
-    new_code = """        # The event endpoint is a websocket (unless polling is configured).
-        if self == Endpoint.EVENT:
-            from reflex_base.config import get_config
-            if get_config().transport != "polling":
-                # Replace the protocol with ws.
-                url = url.replace("https://", "wss://").replace("http://", "ws://")"""
+    # Use simpler string matching to avoid whitespace issues
+    old_code = 'if self == Endpoint.EVENT:'
     
     if old_code not in content:
         print("WARNING: Could not find the expected code to patch.")
@@ -73,9 +74,22 @@ def apply_patch():
         print(f"File: {event_file}")
         sys.exit(1)
     
-    content = content.replace(old_code, new_code)
+    # Replace the specific block
+    content = content.replace(
+        """        # The event endpoint is a websocket.
+        if self == Endpoint.EVENT:
+            # Replace the protocol with ws.
+            url = url.replace("https://", "wss://").replace("http://", "ws://")""",
+        """        # The event endpoint is a websocket (unless polling is configured).
+        if self == Endpoint.EVENT:
+            from reflex_base.config import get_config
+            if get_config().transport != "polling":
+                # Replace the protocol with ws.
+                url = url.replace("https://", "wss://").replace("http://", "ws://")"""
+    )
+    
     event_file.write_text(content)
-    print(f"✅ Patched: {event_file}")
+    print(f"[OK] Patched: {event_file}")
 
 
 if __name__ == "__main__":
