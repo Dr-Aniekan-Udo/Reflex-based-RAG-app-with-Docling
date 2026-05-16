@@ -39,7 +39,10 @@ fi
 if [ ! -f ".env" ]; then
     echo ""
     echo "Warning: .env file not found!"
-    echo "Create one with: echo 'GOOGLE_API_KEY=your-key' > .env"
+    echo "Create one with:"
+    echo "  echo 'GOOGLE_API_KEY=your-key' > .env"
+    echo "Optional (for faster model downloads):"
+    echo "  echo 'HF_TOKEN=your-huggingface-token' >> .env"
     echo "Starting anyway..."
 fi
 
@@ -103,11 +106,24 @@ else
     exit 1
 fi
 
-# Start tailing Celery logs in background so user sees real-time output
-echo ""
-echo "--- Celery Worker Logs (tail -f logs/celery.log) ---"
-tail -f logs/celery.log &
-TAIL_PID=$!
+# Wait for log file to exist before tailing
+echo "Waiting for Celery log file..."
+for i in {1..10}; do
+    if [ -f "logs/celery.log" ]; then
+        break
+    fi
+    sleep 0.5
+done
+
+if [ -f "logs/celery.log" ]; then
+    echo ""
+    echo "--- Celery Worker Logs (tail -f logs/celery.log) ---"
+    tail -f logs/celery.log &
+    TAIL_PID=$!
+else
+    echo "Warning: Celery log file not found after 5 seconds"
+    TAIL_PID=""
+fi
 
 # ─── 7. Start Reflex App (foreground) ───
 echo ""
@@ -135,7 +151,7 @@ cleanup() {
     echo "Shutting down..."
     
     # Stop the tail process
-    if ps -p "$TAIL_PID" > /dev/null 2>&1; then
+    if [ -n "$TAIL_PID" ] && ps -p "$TAIL_PID" > /dev/null 2>&1; then
         kill "$TAIL_PID" 2>/dev/null || true
     fi
     

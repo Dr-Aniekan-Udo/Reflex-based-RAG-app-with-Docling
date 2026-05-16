@@ -1,5 +1,6 @@
 import reflex as rx
 import asyncio
+import re
 from typing import List, Dict, Any
 from uuid import uuid4
 
@@ -182,15 +183,34 @@ class UploadState(BaseState):
                         elif result.state in ("FAILURE", "REVOKED"):
                             doc["status"] = "error"
                             try:
-                                if result.result:
-                                    doc["error_message"] = str(result.result)
+                                # Safely extract error from Celery result
+                                # Celery wraps exceptions in a special format
+                                exc = getattr(result, 'result', None)
+                                if exc is not None:
+                                    error_msg = str(exc)
+                                    # Clean up Celery exception wrapper noise
+                                    if "Exception(" in error_msg:
+                                        # Extract inner exception message
+                                        match = re.search(r"Exception\((.+?)\)$", error_msg)
+                                        if match:
+                                            error_msg = match.group(1)
+                                    if len(error_msg) > 200:
+                                        error_msg = error_msg[:200] + "..."
                                 else:
-                                    doc["error_message"] = "Task failed"
+                                    error_msg = "Task failed"
                             except Exception:
-                                doc["error_message"] = "Task failed"
+                                error_msg = "Task failed"
+                            doc["error_message"] = error_msg
                             doc["message"] = "Failed"
+                            # Log once per doc failure, not every poll cycle
+                            if not doc.get("error_logged"):
+                                logger.error("task_failed", doc_id=doc["doc_id"], error=error_msg)
+                                doc["error_logged"] = True
                     except Exception as e:
-                        logger.error("poll_error", doc_id=doc["doc_id"], error=str(e))
+                        # Only log unexpected errors, not every poll cycle
+                        if not doc.get("poll_error_logged"):
+                            logger.error("poll_error", doc_id=doc["doc_id"], error=str(e))
+                            doc["poll_error_logged"] = True
 
                 # Update vector store with all completed chunks
                 if all_chunks_data:
