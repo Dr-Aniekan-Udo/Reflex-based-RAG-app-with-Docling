@@ -7,14 +7,11 @@ https://github.com/langchain-ai/langchain-google/issues/1704
 """
 import os
 import time
-import logging
 from typing import List, Optional
 
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
-
-logger = logging.getLogger(__name__)
 
 # Configurable via environment variables
 DEFAULT_MODEL = os.getenv("EMBEDDING_MODEL", "gemini-embedding-2-preview")
@@ -68,30 +65,19 @@ class GeminiEmbedder:
             batch = texts[start : start + self.batch_size]
             batch_num = batch_idx + 1
 
-            logger.info(
-                "embedding_batch_start",
-                batch_num=batch_num,
-                total_batches=total_batches,
-                batch_size=len(batch),
-                model=self.model,
+            print(
+                f"  📦 Embedding batch {batch_num}/{total_batches} "
+                f"({len(batch)} texts, model={self.model})..."
             )
 
             embeddings = self._embed_batch(batch)
             all_embeddings.extend(embeddings)
 
-            logger.info(
-                "embedding_batch_complete",
-                batch_num=batch_num,
-                total_batches=total_batches,
-                embeddings_returned=len(embeddings),
-            )
+            print(f"  ✅ Batch {batch_num} complete ({len(embeddings)} embeddings)")
 
             # Rate-limit pacing between batches (skip after last batch)
             if batch_num < total_batches:
-                logger.info(
-                    "embedding_rate_limit_wait",
-                    seconds=self._delay_between_batches,
-                )
+                print(f"  ⏱️  Waiting {self._delay_between_batches:.1f}s for rate limit...")
                 time.sleep(self._delay_between_batches)
 
         return all_embeddings
@@ -147,20 +133,13 @@ class GeminiEmbedder:
 
                 if is_rate_limit and attempt < self.max_retries:
                     wait = min(2 ** attempt, 30)  # Exponential backoff, cap at 30s
-                    logger.warning(
-                        "embedding_rate_limit_retry",
-                        attempt=attempt,
-                        max_retries=self.max_retries,
-                        wait_seconds=wait,
-                        error=error_msg,
+                    print(
+                        f"  ⏳ Rate limit hit, retrying in {wait}s "
+                        f"(attempt {attempt}/{self.max_retries})..."
                     )
                     time.sleep(wait)
                 else:
-                    logger.error(
-                        "embedding_api_error",
-                        attempt=attempt,
-                        error=error_msg,
-                    )
+                    print(f"  ❌ Embedding API error (attempt {attempt}): {error_msg}")
                     raise RuntimeError(
                         f"Embedding failed after {attempt} attempts: {error_msg}"
                     ) from last_error
