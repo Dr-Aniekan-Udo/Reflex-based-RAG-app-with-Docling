@@ -85,6 +85,11 @@ if [ -f "logs/celery.pid" ]; then
     fi
 fi
 
+# Purge corrupted Celery result metadata from Redis
+# (Previous runs may have stored malformed FAILURE states with missing exc_type)
+echo "Purging old Celery task metadata from Redis..."
+redis-cli KEYS 'celery-task-meta-*' | xargs -r redis-cli del > /dev/null 2>&1 || true
+
 # Start Celery worker in background, redirect output to log file
 uv run celery -A RAG_app.core.celery_app worker \
     --loglevel=info \

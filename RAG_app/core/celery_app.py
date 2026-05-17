@@ -46,7 +46,7 @@ celery_app.conf.update(
     # Result backend
     result_backend=REDIS_URL,
     result_expires=3600,           # Results expire after 1 hour
-    result_extended=True,
+    result_extended=False,         # Disabled: task args contain bytes (PDF data) which break JSON serialization
 
     # Broker connection
     broker_connection_retry_on_startup=True,
