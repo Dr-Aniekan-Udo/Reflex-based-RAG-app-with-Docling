@@ -86,6 +86,24 @@ def process_document_task(self, file_data: bytes, filename: str, doc_id: str) ->
         }
 
     except Exception as e:
-        logger.error("processing_task_failed", error=str(e), doc_id=doc_id, filename=filename, exc_info=True)
-        self.update_state(state="FAILURE", meta={"progress": 0, "message": f"Error: {str(e)}"})
-        raise self.retry(exc=e, countdown=60, max_retries=2)
+        error_str = str(e)
+        logger.error("processing_task_failed", error=error_str, doc_id=doc_id, filename=filename, exc_info=True)
+        
+        # Only retry for transient errors (CPU throttling, network timeouts)
+        # Permanent errors (missing API key, invalid config) should fail immediately
+        transient_keywords = ["timeout", "connection", "network", "temporarily", "throttle", "rate limit"]
+        is_transient = any(kw in error_str.lower() for kw in transient_keywords)
+        
+        if is_transient:
+            self.update_state(state="RETRY", meta={"progress": 0, "message": f"Retrying: {error_str}"})
+            raise self.retry(exc=e, countdown=60, max_retries=2)
+        else:
+            # Permanent error — return failure, don't retry
+            self.update_state(state="FAILURE", meta={"progress": 0, "message": f"Error: {error_str}"})
+            return {
+                "success": False,
+                "error": error_str,
+                "doc_id": doc_id,
+                "pages": 0,
+                "chunks": 0,
+            }

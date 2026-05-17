@@ -2,7 +2,11 @@
 Celery application configuration with Redis broker.
 """
 import os
+from dotenv import load_dotenv
 from celery import Celery
+
+# Load .env so Celery workers pick up GOOGLE_API_KEY, etc.
+load_dotenv()
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 

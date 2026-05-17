@@ -127,6 +127,9 @@ class UploadState(BaseState):
         doc["progress"] = 5
         doc["message"] = "Queued for processing..."
         doc["error_message"] = ""
+        # Reset error log flags on new attempt
+        doc["error_logged"] = False
+        doc["poll_error_logged"] = False
 
         try:
             result = process_document_task.delay(data, doc["filename"], doc_id)
@@ -155,15 +158,18 @@ class UploadState(BaseState):
                 all_available_docs = set()
 
                 for doc in processing_docs:
+                    task_id = doc["task_id"]
                     try:
-                        result = celery_app.AsyncResult(doc["task_id"])
-                        if result.state == "PENDING":
+                        result = celery_app.AsyncResult(task_id)
+                        state = result.state
+
+                        if state == "PENDING":
                             doc["message"] = "Waiting for worker..."
-                        elif result.state == "STARTED":
+                        elif state == "STARTED":
                             meta = result.info or {}
                             doc["progress"] = meta.get("progress", 10)
                             doc["message"] = meta.get("message", "Processing...")
-                        elif result.state == "SUCCESS":
+                        elif state == "SUCCESS":
                             data = result.result or {}
                             if data.get("success"):
                                 doc["status"] = "completed"
@@ -180,17 +186,16 @@ class UploadState(BaseState):
                                 doc["status"] = "error"
                                 doc["error_message"] = data.get("error", "Unknown error")
                                 doc["message"] = "Failed"
-                        elif result.state in ("FAILURE", "REVOKED"):
+                                if not doc.get("error_logged"):
+                                    logger.error("task_failed", doc_id=doc["doc_id"], error=doc["error_message"])
+                                    doc["error_logged"] = True
+                        elif state in ("FAILURE", "REVOKED"):
                             doc["status"] = "error"
                             try:
-                                # Safely extract error from Celery result
-                                # Celery wraps exceptions in a special format
                                 exc = getattr(result, 'result', None)
                                 if exc is not None:
                                     error_msg = str(exc)
-                                    # Clean up Celery exception wrapper noise
                                     if "Exception(" in error_msg:
-                                        # Extract inner exception message
                                         match = re.search(r"Exception\((.+?)\)$", error_msg)
                                         if match:
                                             error_msg = match.group(1)
@@ -202,12 +207,28 @@ class UploadState(BaseState):
                                 error_msg = "Task failed"
                             doc["error_message"] = error_msg
                             doc["message"] = "Failed"
-                            # Log once per doc failure, not every poll cycle
                             if not doc.get("error_logged"):
                                 logger.error("task_failed", doc_id=doc["doc_id"], error=error_msg)
                                 doc["error_logged"] = True
+
+                    except ValueError as ve:
+                        # Celery Redis backend corruption: missing exc_type in result metadata
+                        # This happens when retry exceptions are stored incorrectly
+                        error_text = str(ve)
+                        if "Exception information must include" in error_text:
+                            doc["status"] = "error"
+                            doc["error_message"] = "Task failed (Celery result corrupted)"
+                            doc["message"] = "Failed"
+                            if not doc.get("error_logged"):
+                                logger.error("task_failed_celery_corruption", doc_id=doc["doc_id"], task_id=task_id)
+                                doc["error_logged"] = True
+                        else:
+                            # Other ValueError — log once
+                            if not doc.get("poll_error_logged"):
+                                logger.error("poll_value_error", doc_id=doc["doc_id"], error=error_text)
+                                doc["poll_error_logged"] = True
                     except Exception as e:
-                        # Only log unexpected errors, not every poll cycle
+                        # Only log unexpected errors once per doc
                         if not doc.get("poll_error_logged"):
                             logger.error("poll_error", doc_id=doc["doc_id"], error=str(e))
                             doc["poll_error_logged"] = True
@@ -261,6 +282,8 @@ class UploadState(BaseState):
         doc["progress"] = 0
         doc["message"] = "Ready"
         doc["task_id"] = ""
+        doc["error_logged"] = False
+        doc["poll_error_logged"] = False
         self.process_document(doc_id)
 
     @rx.event
