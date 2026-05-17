@@ -11,6 +11,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 
 from .embeddings import GeminiEmbedder
+from .logging_config import logger
 
 
 class VectorStoreManager:
@@ -25,15 +26,15 @@ class VectorStoreManager:
         )
 
     def chunk_documents(self, documents: List[Document]) -> List[Document]:
-        print(f"✂️ Chunking {len(documents)} documents...")
+        logger.info("chunking_documents", document_count=len(documents))
         chunks = self.text_splitter.split_documents(documents)
         # Filter out empty/whitespace-only chunks to prevent embedding length mismatch
         chunks = [c for c in chunks if c.page_content and c.page_content.strip()]
-        print(f"✅ Created {len(chunks)} chunks")
+        logger.info("chunks_created", chunk_count=len(chunks))
         return chunks
 
     def create_vectorstore(self, chunks: List[Document]) -> Chroma:
-        print(f"🔢 Creating vector store with {len(chunks)} chunks...")
+        logger.info("creating_vectorstore", chunk_count=len(chunks))
 
         texts = [c.page_content for c in chunks]
         metadatas = [c.metadata for c in chunks]
@@ -57,7 +58,7 @@ class VectorStoreManager:
             ids=ids
         )
 
-        print(f"✅ Vector store created successfully with {len(embeddings)} chunks")
+        logger.info("vectorstore_created", chunk_count=len(embeddings))
         return vectorstore
 
     def add_documents(self, vectorstore: Chroma, chunks: List[Document]) -> None:
@@ -85,12 +86,12 @@ class VectorStoreManager:
             metadatas=metadatas,
             ids=ids
         )
-        print(f"✅ Added {len(embeddings)} chunks to existing vector store")
+        logger.info("vectorstore_documents_added", chunk_count=len(embeddings))
 
     def search_similar(self, vectorstore: Chroma, query: str, k: int = 8) -> List[Document]:
         try:
             results = vectorstore.similarity_search(query, k=k)
             return results
         except Exception as e:
-            print(f"❌ Error searching vector store: {e}")
+            logger.error("vectorstore_search_error", error=str(e))
             return []
