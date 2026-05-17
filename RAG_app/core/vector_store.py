@@ -3,7 +3,8 @@ Vector store management for document storage and retrieval.
 Synchronous; the caller (Reflex background task) is responsible for threading.
 """
 import os
-from typing import List
+import time
+from typing import List, Tuple
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -13,6 +14,11 @@ from langchain_chroma import Chroma
 # The correct embedding model name is "gemini-embedding-2-preview".
 # Older names like "models/text-embedding-004" are not supported by this SDK.
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "gemini-embedding-2-preview")
+
+# Embedding rate-limit configuration (tune for your API tier)
+EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "25"))
+EMBEDDING_RPM_LIMIT = int(os.getenv("EMBEDDING_RPM_LIMIT", "5"))
+EMBEDDING_MAX_RETRIES = int(os.getenv("EMBEDDING_MAX_RETRIES", "5"))
 
 
 class VectorStoreManager:
@@ -34,6 +40,62 @@ class VectorStoreManager:
         print(f"✅ Created {len(chunks)} chunks")
         return chunks
 
+    def _embed_batch_with_retry(self, texts: List[str]) -> List[List[float]]:
+        """
+        Embed a list of texts with batching, rate-limit pacing, and retry.
+        Never skips chunks — raises on persistent failure so the caller
+        can surface the error in the UI.
+        """
+        if not texts:
+            return []
+
+        all_embeddings: List[List[float]] = []
+        delay_between_batches = 60.0 / EMBEDDING_RPM_LIMIT  # e.g. 12s for 5 RPM
+
+        for batch_start in range(0, len(texts), EMBEDDING_BATCH_SIZE):
+            batch = texts[batch_start:batch_start + EMBEDDING_BATCH_SIZE]
+            batch_num = batch_start // EMBEDDING_BATCH_SIZE + 1
+            total_batches = (len(texts) + EMBEDDING_BATCH_SIZE - 1) // EMBEDDING_BATCH_SIZE
+            print(f"  📦 Embedding batch {batch_num}/{total_batches} ({len(batch)} texts)...")
+
+            last_error = None
+            for attempt in range(1, EMBEDDING_MAX_RETRIES + 1):
+                try:
+                    embeddings = self.embeddings.embed_documents(batch)
+                    if len(embeddings) != len(batch):
+                        raise ValueError(
+                            f"Embedding count mismatch: got {len(embeddings)}, expected {len(batch)}"
+                        )
+                    all_embeddings.extend(embeddings)
+                    print(f"  ✅ Batch {batch_num} complete ({len(embeddings)} embeddings)")
+                    break
+                except Exception as e:
+                    last_error = e
+                    error_msg = str(e)
+                    is_rate_limit = (
+                        "429" in error_msg
+                        or "RESOURCE_EXHAUSTED" in error_msg
+                        or "Too Many Requests" in error_msg
+                        or "rate limit" in error_msg.lower()
+                    )
+
+                    if is_rate_limit and attempt < EMBEDDING_MAX_RETRIES:
+                        wait = min(2 ** attempt, 30)  # Exponential backoff capped at 30s
+                        print(f"  ⏳ Rate limit hit, retrying in {wait}s (attempt {attempt}/{EMBEDDING_MAX_RETRIES})...")
+                        time.sleep(wait)
+                    else:
+                        # Final attempt failed — raise so the task fails visibly
+                        raise RuntimeError(
+                            f"Embedding failed after {attempt} attempts: {error_msg}"
+                        ) from last_error
+
+            # Rate-limit pacing between batches (skip after the last batch)
+            if batch_start + EMBEDDING_BATCH_SIZE < len(texts):
+                print(f"  ⏱️  Waiting {delay_between_batches:.1f}s for rate limit...")
+                time.sleep(delay_between_batches)
+
+        return all_embeddings
+
     def create_vectorstore(self, chunks: List[Document]) -> Chroma:
         print(f"🔢 Creating vector store with {len(chunks)} chunks...")
 
@@ -41,36 +103,7 @@ class VectorStoreManager:
         metadatas = [c.metadata for c in chunks]
         ids = [str(i) for i in range(len(chunks))]
 
-        # Attempt batch embedding first
-        try:
-            embeddings = self.embeddings.embed_documents(texts)
-            if len(embeddings) != len(texts):
-                print(
-                    f"⚠️ Embedding count mismatch: {len(embeddings)} vs {len(texts)}. "
-                    "Falling back to one-by-one embedding..."
-                )
-                raise ValueError("Embedding count mismatch")
-        except Exception as batch_err:
-            print(f"⚠️ Batch embedding failed ({batch_err}). Falling back to one-by-one embedding...")
-            embeddings = []
-            valid_texts = []
-            valid_metadatas = []
-            valid_ids = []
-            for idx, text in enumerate(texts):
-                try:
-                    emb = self.embeddings.embed_query(text)
-                    embeddings.append(emb)
-                    valid_texts.append(text)
-                    valid_metadatas.append(metadatas[idx])
-                    valid_ids.append(ids[idx])
-                except Exception as single_err:
-                    print(f"⚠️ Skipping chunk {idx} due to embedding error: {single_err}")
-                    continue
-
-            texts = valid_texts
-            metadatas = valid_metadatas
-            ids = valid_ids
-            print(f"✅ One-by-one embedding complete: {len(embeddings)} embeddings")
+        embeddings = self._embed_batch_with_retry(texts)
 
         # Create empty Chroma instance with embedding_function so similarity_search works later
         vectorstore = Chroma(
@@ -106,28 +139,7 @@ class VectorStoreManager:
 
         ids = [str(start_id + i) for i in range(len(chunks))]
 
-        # Embed with fallback
-        try:
-            embeddings = self.embeddings.embed_documents(texts)
-            if len(embeddings) != len(texts):
-                raise ValueError("Embedding count mismatch")
-        except Exception:
-            embeddings = []
-            valid_texts = []
-            valid_metadatas = []
-            valid_ids = []
-            for idx, text in enumerate(texts):
-                try:
-                    emb = self.embeddings.embed_query(text)
-                    embeddings.append(emb)
-                    valid_texts.append(text)
-                    valid_metadatas.append(metadatas[idx])
-                    valid_ids.append(ids[idx])
-                except Exception:
-                    continue
-            texts = valid_texts
-            metadatas = valid_metadatas
-            ids = valid_ids
+        embeddings = self._embed_batch_with_retry(texts)
 
         vectorstore._collection.upsert(
             embeddings=embeddings,

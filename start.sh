@@ -90,11 +90,15 @@ fi
 echo "Purging old Celery task metadata from Redis..."
 redis-cli KEYS 'celery-task-meta-*' | xargs -r redis-cli del > /dev/null 2>&1 || true
 
+# Purge Celery broker queue to clear old unacknowledged messages
+echo "Purging Celery broker queue..."
+uv run celery -A RAG_app.core.celery_app purge -f > /dev/null 2>&1 || true
+
 # Start Celery worker in background, redirect output to log file
 uv run celery -A RAG_app.core.celery_app worker \
     --loglevel=info \
     --pool=prefork \
-    --max-tasks-per-child=1 \
+    --max-tasks-per-child=5 \
     --hostname=rag-worker@%h \
     --queues=celery \
     --events \
